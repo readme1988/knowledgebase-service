@@ -1,13 +1,13 @@
 package io.choerodon.kb.api.controller.v1;
 
-import io.choerodon.base.annotation.Permission;
-import io.choerodon.base.enums.ResourceType;
-import io.choerodon.core.iam.InitRoleCode;
+import io.choerodon.swagger.annotation.Permission;
+import io.choerodon.core.iam.ResourceLevel;
 import io.choerodon.kb.api.vo.WorkSpaceShareUpdateVO;
 import io.choerodon.kb.api.vo.WorkSpaceShareVO;
 import io.choerodon.kb.app.service.WorkSpaceShareService;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +27,7 @@ public class WorkSpaceShareProjectController {
         this.workSpaceShareService = workSpaceShareService;
     }
 
-    @Permission(type = ResourceType.PROJECT, roles = {InitRoleCode.PROJECT_MEMBER, InitRoleCode.PROJECT_OWNER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation(value = "查询分享链接（不存在则创建）")
     @GetMapping
     public ResponseEntity<WorkSpaceShareVO> queryShare(@ApiParam(value = "项目ID", required = true)
@@ -35,11 +35,11 @@ public class WorkSpaceShareProjectController {
                                                        @ApiParam(value = "组织id", required = true)
                                                        @RequestParam Long organizationId,
                                                        @ApiParam(value = "工作空间ID", required = true)
-                                                       @RequestParam("work_space_id") Long workSpaceId) {
+                                                       @RequestParam("work_space_id") @Encrypt Long workSpaceId) {
         return new ResponseEntity<>(workSpaceShareService.queryShare(organizationId, projectId, workSpaceId), HttpStatus.CREATED);
     }
 
-    @Permission(type = ResourceType.PROJECT, roles = {InitRoleCode.PROJECT_MEMBER, InitRoleCode.PROJECT_OWNER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation(value = "修改分享链接类型")
     @PutMapping(value = "/{id}")
     public ResponseEntity<WorkSpaceShareVO> updateShare(@ApiParam(value = "项目ID", required = true)
@@ -47,7 +47,7 @@ public class WorkSpaceShareProjectController {
                                                         @ApiParam(value = "组织id", required = true)
                                                         @RequestParam Long organizationId,
                                                         @ApiParam(value = "分享id", required = true)
-                                                        @PathVariable Long id,
+                                                        @PathVariable @Encrypt Long id,
                                                         @ApiParam(value = "修改信息", required = true)
                                                         @RequestBody @Valid WorkSpaceShareUpdateVO workSpaceShareUpdateVO) {
         return new ResponseEntity<>(workSpaceShareService.updateShare(organizationId, projectId, id, workSpaceShareUpdateVO), HttpStatus.CREATED);

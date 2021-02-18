@@ -3,12 +3,11 @@ import { stores, Permission, Choerodon } from '@choerodon/boot';
 import { Icon, Popconfirm, Tooltip } from 'choerodon-ui';
 import TimeAgo from 'timeago-react';
 import 'codemirror/lib/codemirror.css';
-import 'tui-editor/dist/tui-editor.min.css';
-import 'tui-editor/dist/tui-editor-contents.min.css';
+import '@toast-ui/editor/dist/toastui-editor.css';
 import { Viewer } from '@toast-ui/react-editor';
 import UserHead from '../../../UserHead';
 import DocEditor from '../../../Editor';
-import './Comment.scss';
+import './Comment.less';
 
 const { AppState } = stores;
 
@@ -145,7 +144,9 @@ class Comment extends Component {
                   type={type}
                   projectId={projectId}
                   organizationId={orgId}
-                  service={[`knowledgebase-service.page-comment-${type}.deleteComment`]}
+                  service={type === 'project' 
+                    ? ['choerodon.code.project.cooperation.knowledge.ps.page_comment.delete']
+                    : ['choerodon.code.organization.knowledge.ps.page_comment.delete']}
                 >
                   <Popconfirm
                     title="确认要删除该评论吗?"

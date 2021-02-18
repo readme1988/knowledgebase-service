@@ -2,8 +2,10 @@ package io.choerodon.kb.api.vo;
 
 import io.choerodon.kb.infra.feign.vo.UserDO;
 import io.swagger.annotations.ApiModelProperty;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * @author shinan.chen
@@ -11,9 +13,17 @@ import java.util.Date;
  */
 public class WorkSpaceRecentVO {
     @ApiModelProperty(value = "空间id")
+    @Encrypt
     private Long id;
+    @ApiModelProperty(value = "知识库id")
+    @Encrypt
+    private Long baseId;
     @ApiModelProperty(value = "页面标题")
     private String title;
+    @ApiModelProperty(value = "空间路由id")
+    private String route;
+    @ApiModelProperty(value = "更新空间名")
+    private String updateworkSpace;
     @ApiModelProperty(value = "页面最后修改人id")
     private Long lastUpdatedBy;
     @ApiModelProperty(value = "页面最后修改用户对象")
@@ -26,6 +36,16 @@ public class WorkSpaceRecentVO {
     private Long organizationId;
     @ApiModelProperty(value = "项目id")
     private Long projectId;
+    @ApiModelProperty(value = "知识库名称")
+    private String knowledgeBaseName;
+
+    public Long getBaseId() {
+        return baseId;
+    }
+
+    public void setBaseId(Long baseId) {
+        this.baseId = baseId;
+    }
 
     public String getLastUpdateDateStr() {
         return lastUpdateDateStr;
@@ -89,5 +109,29 @@ public class WorkSpaceRecentVO {
 
     public void setLastUpdateDate(Date lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
+    }
+
+    public String getRoute() {
+        return route;
+    }
+
+    public void setRoute(String route) {
+        this.route = route;
+    }
+
+    public String getUpdateworkSpace() {
+        return updateworkSpace;
+    }
+
+    public void setUpdateworkSpace(String updateworkSpace) {
+        this.updateworkSpace = updateworkSpace;
+    }
+
+    public String getKnowledgeBaseName() {
+        return knowledgeBaseName;
+    }
+
+    public void setKnowledgeBaseName(String knowledgeBaseName) {
+        this.knowledgeBaseName = knowledgeBaseName;
     }
 }

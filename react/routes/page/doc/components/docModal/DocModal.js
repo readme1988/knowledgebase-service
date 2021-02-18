@@ -77,22 +77,35 @@ class DocModal extends Component {
       uploading: true,
     });
     store.importWord(formData).then((res) => {
-      store.setImportDoc(res);
-      if (file.name) {
-        const nameList = file.name.split('.');
-        nameList.pop();
-        store.setImportTitle(nameList.join());
+      if (res.failed && res.code === 'error.importDocx2Md.fileIllegal') {
+        Choerodon.prompt('导入失败，导入文件类型错误');
+        this.setState({
+          uploading: false,
+        });
+      } else {
+        if (res.failed && res.code === 'Error reading from the stream (no bytes available)') {
+          store.setImportDoc('');
+        } else {
+          store.setImportDoc(res.toString());
+        }
+        if (file.name) {
+          const nameList = file.name.split('.');
+          nameList.pop();
+          store.setImportTitle(nameList.join());
+        }
+        this.setState({
+          uploading: false,
+        });
+        store.setImportVisible(false);
+        store.setImportMode(true);
       }
+    }).catch((error) => {
       this.setState({
         uploading: false,
       });
-      store.setImportVisible(false);
-      store.setImportMode(true);
-    }).catch((e) => {
-      this.setState({
-        uploading: false,
-      });
-      Choerodon.prompt('网络错误');
+      if (!(error.failed && error.code === 'error.import.word.empty')) {
+        Choerodon.prompt('导入失败');
+      }
     });
   };
 
@@ -124,6 +137,7 @@ class DocModal extends Component {
     // 草稿
     const docData = store.getDoc;
     const draftTime = (docData && docData.createDraftDate) || '';
+
     return (
       <React.Fragment>
         {shareVisible

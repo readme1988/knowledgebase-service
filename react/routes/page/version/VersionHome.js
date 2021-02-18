@@ -1,18 +1,15 @@
-import React, { Component, useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import queryString from 'query-string';
+import { Spin } from 'choerodon-ui';
 import {
-  Button, Icon, Dropdown, Spin, Input, Divider as C7NDivider, Menu, Modal,
-} from 'choerodon-ui';
-import {
-  Page, Header, Content, stores, Permission, Breadcrumb,
+  Page, Content, Breadcrumb,
 } from '@choerodon/boot';
 import { withRouter } from 'react-router-dom';
 import { injectIntl } from 'react-intl';
 import { mutateTree } from '@atlaskit/tree';
 import DocVersion from '../../../components/DocVersion';
 import PageStore from '../stores';
-import AttachmentRender from '../../../components/Extensions/attachment/AttachmentRender';
 import ResizeContainer from '../../../components/ResizeDivider/ResizeContainer';
 import WorkSpace from '../components/work-space';
 import './style/index.less';
@@ -57,7 +54,7 @@ function VersionHome() {
     let spaceCode = false;
     Object.keys(workSpace).forEach((key) => {
       if (!spaceId) {
-        const list = workSpace[key] && workSpace[key].data.items[0].children;
+        const list = workSpace[key] && workSpace[key].data.items[workSpace.rootId].children;
         if (list && list.length) {
           [spaceId] = list;
           spaceCode = key;
@@ -114,7 +111,7 @@ function VersionHome() {
     let id = spaceId;
     if (!id) {
       const params = queryString.parse(history.location.search);
-      id = Number(params.spaceId);
+      id = params.spaceId;
     }
     // 初始化
     // setLoading(true);
@@ -191,7 +188,6 @@ function VersionHome() {
           </Spin>
         </div>
       </Content>
-      <AttachmentRender />
     </Page>
   );
 }

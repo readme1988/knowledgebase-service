@@ -1,14 +1,14 @@
 package io.choerodon.kb.api.controller.v1;
 
-import io.choerodon.base.annotation.Permission;
-import io.choerodon.base.enums.ResourceType;
-import io.choerodon.core.iam.InitRoleCode;
+import io.choerodon.swagger.annotation.Permission;
+import io.choerodon.core.iam.ResourceLevel;
 import io.choerodon.kb.api.vo.PageCommentVO;
 import io.choerodon.kb.api.vo.PageCreateCommentVO;
 import io.choerodon.kb.api.vo.PageUpdateCommentVO;
 import io.choerodon.kb.app.service.PageCommentService;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,29 +34,25 @@ public class PageCommentOrganizationController {
      * @param pageCreateCommentVO 评论信息
      * @return List<PageCommentVO>
      */
-    @Permission(type = ResourceType.ORGANIZATION,
-            roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR,
-                    InitRoleCode.ORGANIZATION_MEMBER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("创建page评论")
     @PostMapping
     public ResponseEntity<PageCommentVO> create(@ApiParam(value = "组织ID", required = true)
                                                 @PathVariable(value = "organization_id") Long organizationId,
                                                 @ApiParam(value = "评论信息", required = true)
-                                                @RequestBody @Valid PageCreateCommentVO pageCreateCommentVO) {
+                                                @RequestBody @Valid @Encrypt PageCreateCommentVO pageCreateCommentVO) {
         return new ResponseEntity<>(pageCommentService.create(organizationId, null, pageCreateCommentVO), HttpStatus.CREATED);
     }
 
 
-    @Permission(type = ResourceType.ORGANIZATION,
-            roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR,
-                    InitRoleCode.ORGANIZATION_MEMBER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation(value = " 查询页面评论")
     @GetMapping(value = "/list")
     public ResponseEntity<List<PageCommentVO>> queryByList(
             @ApiParam(value = "组织id", required = true)
             @PathVariable(value = "organization_id") Long organizationId,
             @ApiParam(value = "页面id", required = true)
-            @RequestParam Long pageId) {
+            @RequestParam @Encrypt Long pageId) {
         return new ResponseEntity<>(pageCommentService.queryByPageId(organizationId, null, pageId), HttpStatus.OK);
     }
 
@@ -68,9 +64,7 @@ public class PageCommentOrganizationController {
      * @param pageUpdateCommentVO 评论信息
      * @return
      */
-    @Permission(type = ResourceType.ORGANIZATION,
-            roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR,
-                    InitRoleCode.ORGANIZATION_MEMBER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("更新page评论")
     @PutMapping(value = "/{id}")
     public ResponseEntity<PageCommentVO> update(@ApiParam(value = "组织ID", required = true)
@@ -78,7 +72,7 @@ public class PageCommentOrganizationController {
                                                 @ApiParam(value = "评论id", required = true)
                                                 @PathVariable Long id,
                                                 @ApiParam(value = "评论信息", required = true)
-                                                @RequestBody @Valid PageUpdateCommentVO pageUpdateCommentVO) {
+                                                @RequestBody @Valid @Encrypt PageUpdateCommentVO pageUpdateCommentVO) {
         return new ResponseEntity<>(pageCommentService.update(organizationId, null, id, pageUpdateCommentVO), HttpStatus.CREATED);
     }
 
@@ -89,15 +83,13 @@ public class PageCommentOrganizationController {
      * @param id             评论id
      * @return ResponseEntity
      */
-    @Permission(type = ResourceType.ORGANIZATION,
-            roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR,
-                    InitRoleCode.ORGANIZATION_MEMBER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("通过id删除评论（管理员权限）")
     @DeleteMapping(value = "/{id}")
     public ResponseEntity deleteComment(@ApiParam(value = "组织ID", required = true)
                                         @PathVariable(value = "organization_id") Long organizationId,
                                         @ApiParam(value = "评论id", required = true)
-                                        @PathVariable Long id) {
+                                        @PathVariable @Encrypt Long id) {
         pageCommentService.delete(organizationId, null, id, true);
         return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
@@ -109,17 +101,16 @@ public class PageCommentOrganizationController {
      * @param id             评论id
      * @return ResponseEntity
      */
-    @Permission(type = ResourceType.ORGANIZATION,
-            roles = {InitRoleCode.ORGANIZATION_ADMINISTRATOR,
-                    InitRoleCode.ORGANIZATION_MEMBER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("通过id删除评论（删除自己的评论）")
     @DeleteMapping(value = "/delete_my/{id}")
     public ResponseEntity deleteMyComment(@ApiParam(value = "组织ID", required = true)
                                           @PathVariable(value = "organization_id") Long organizationId,
                                           @ApiParam(value = "评论id", required = true)
-                                          @PathVariable Long id) {
+                                          @PathVariable @Encrypt Long id) {
         pageCommentService.delete(organizationId, null, id, false);
         return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
+
 
 }

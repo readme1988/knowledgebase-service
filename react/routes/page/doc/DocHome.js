@@ -1,4 +1,4 @@
-import React, { Component, useContext, useEffect, useState, useRef } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import queryString from 'query-string';
 import {
@@ -13,7 +13,6 @@ import { mutateTree } from '@atlaskit/tree';
 import DocDetail from '../../../components/DocDetail';
 import DocEditor from './components/doc-editor';
 import PageStore from '../stores';
-import AttachmentRender from '../../../components/Extensions/attachment/AttachmentRender';
 import { removeItemFromTree, addItemToTree } from '../../../components/WorkSpaceTree';
 import ResizeContainer from '../../../components/ResizeDivider/ResizeContainer';
 import WorkSpace from '../components/work-space';
@@ -21,26 +20,15 @@ import SearchList from '../../../components/SearchList';
 import Catalog from '../../../components/Catalog';
 import DocModal from './components/docModal';
 import HomePage from './components/home-page';
+import CreateDoc from './components/create-doc';
+import CreateTemplate from './components/create-template';
+import Template from './components/template';
 import useFullScreen from './components/fullScreen/useFullScreen';
 import './style/index.less';
 
-let hasBuzz = false;
-let CooperateSide = () => <div />;
-try {
-  CooperateSide = require('@choerodon/buzz/lib/routes/cooperate-side').default;
-  hasBuzz = true;
-} catch (error) {
-  try {
-    CooperateSide = require('@choerodon/buzz-saas/lib/routes/cooperate-side').default;
-    hasBuzz = true;
-  } catch (e) {
-    hasBuzz = false;
-  }
-}
 const { Section, Divider } = ResizeContainer;
-const { AppState, MenuStore, HeaderStore } = stores;
+const { AppState } = stores;
 const { confirm } = Modal;
-const { Fragment } = React;
 
 function DocHome() {
   const { pageStore, history, id: proId, organizationId: orgId, type: levelType } = useContext(PageStore);
@@ -50,11 +38,11 @@ function DocHome() {
   const [logVisible, setLogVisible] = useState(false);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [buzzVisible, setBuzzVisible] = useState(false);
-  const [defaultOpenId, setDefaultOpenId] = useState(false);
   const [catalogTag, setCatalogTag] = useState(false);
   const [readOnly, setReadOnly] = useState(true);
+  const { section } = pageStore;
   const workSpaceRef = useRef(null);
+  const spaceCode = pageStore.getSpaceCode;
   const onFullScreenChange = (fullScreen) => {
     pageStore.setFullScreen(!!fullScreen);
     if (catalogTag) {
@@ -64,7 +52,7 @@ function DocHome() {
       pageStore.setCatalogVisible(false);
     }
   };
-  const [isFullScreen, toggleFullScreen] = useFullScreen(document.getElementsByClassName('c7n-kb-doc')[0], onFullScreenChange);
+  const [isFullScreen, toggleFullScreen] = useFullScreen(() => document.body, onFullScreenChange, 'c7nagile-doc-fullScreen');
   const {
     getSpaceCode: code,
     getSearchVisible: searchVisible,
@@ -92,35 +80,6 @@ function DocHome() {
     window.history.pushState({}, 0, newUrl);
   }
 
-  /**
-   * 默认选中空间并返回id
-   * @returns id
-   * 注意: 此函数会更改空间数据
-   */
-  function getDefaultSpaceId() {
-    const workSpace = pageStore.getWorkSpace;
-    let spaceId = false;
-    let spaceCode = false;
-    Object.keys(workSpace).forEach((key) => {
-      if (!spaceId) {
-        const list = workSpace[key] && workSpace[key].data.items[0].children;
-        if (list && list.length) {
-          [spaceId] = list;
-          spaceCode = key;
-        }
-      }
-    });
-    if (spaceId) {
-      const newTree = mutateTree(workSpace[spaceCode].data, spaceId, { isClick: true });
-      pageStore.setWorkSpaceByCode(spaceCode, newTree);
-      pageStore.setSpaceCode(spaceCode);
-      pageStore.setSelectId(spaceId);
-      return spaceId;
-    } else {
-      return false;
-    }
-  }
-
   function handleCancel(spaceId) {
     setCreating(false);
     setSaving(false);
@@ -129,20 +88,20 @@ function DocHome() {
     const item = spaceData.items[spaceId];
     const newTree = removeItemFromTree(spaceData, {
       ...item,
-      parentId: item.parentId || item.workSpaceParentId || 0,
+      parentId: item.parentId || item.workSpaceParentId || spaceData.rootId,
     }, true);
     pageStore.setWorkSpaceByCode(code, newTree);
   }
 
   function checkPermission(type) {
     if (levelType === 'organization') {
-      const orgData = HeaderStore.getOrgData;
-      const orgObj = orgData.find(v => String(v.id) === String(orgId));
-      if (!orgObj || (orgObj && !orgObj.into)) {
-        setReadOnly(true);
-      } else {
-        setReadOnly(false);
-      }
+      // const orgData = HeaderStore.getOrgData;
+      // const orgObj = orgData.find(v => String(v.id) === String(orgId));
+      // if (!orgObj || (orgObj && !orgObj.into)) {
+      // setReadOnly(true);
+      // } else {
+      setReadOnly(false);
+      // }
     } else {
       setReadOnly(getTypeCode() !== type);
     }
@@ -202,8 +161,11 @@ function DocHome() {
       });
     } else {
       // 没选文档时，显示主页
-      pageStore.setSpaceCode(levelType === 'project' ? 'pro' : 'org');
+      // pageStore.setSpaceCode(levelType === 'project' ? 'pro' : 'org');
+      // pageStore.setSpaceCode(levelType === 'project' ? 'pro' : 'org');
       pageStore.setSelectId(false);
+      pageStore.setDoc(false);
+      pageStore.setSection('recent');
       checkPermission(getTypeCode());
       pageStore.queryRecentUpdate();
       setDocLoading(false);
@@ -219,11 +181,12 @@ function DocHome() {
       const { hash } = window.location;
       const search = hash.split('?').length > 1 ? hash.split('?')[1] : '';
       const params = queryString.parse(search);
-      id = params.spaceId && Number(params.spaceId);
+      id = params.spaceId;
     }
     if (id) {
       pageStore.setSelectId(id);
     }
+
     pageStore.loadWorkSpaceAll(id || selectId).then((res) => {
       if (res && res.failed && ['error.workspace.illegal', 'error.workspace.notFound'].indexOf(res.code) !== -1) {
         // 如果id错误或不存在
@@ -240,68 +203,48 @@ function DocHome() {
       setLoading(false);
     });
   }
-
-  function openCooperate() {
-    const { hash } = window.location;
-    const search = hash.split('?').length > 1 ? hash.split('?')[1] : '';
-    const params = queryString.parse(search);
-    if (params.openCooperate) {
-      setBuzzVisible(true);
-      if (params.defaultOpenId) {
-        setDefaultOpenId(params.defaultOpenId);
-        delete params.defaultOpenId;
-      }
-      delete params.openCooperate;
-      const { origin } = window.location;
-      const { pathname } = history.location;
-      const newParams = queryString.stringify(params);
-      const newUrl = `${origin}#${pathname}?${newParams}`;
-      window.history.pushState({}, 0, newUrl);
-    }
-  }
-
   useEffect(() => {
     // 加载数据
     // MenuStore.setCollapsed(true);
-    openCooperate();
     loadWorkSpace();
   }, []);
 
+  /**
+   * 移动文档至回收站
+   * @param {*} spaceId
+   * @param {*} role
+   */
   function deleteDoc(spaceId, role) {
     const workSpace = pageStore.getWorkSpace;
     const spaceData = workSpace[code].data;
     const item = spaceData.items[spaceId];
-    if (role === 'admin') {
-      pageStore.adminDeleteDoc(spaceId).then(() => {
-        const newTree = removeItemFromTree(spaceData, {
-          ...item,
-          parentId: item.parentId || item.workSpaceParentId || 0,
-        });
-        pageStore.setWorkSpaceByCode(code, newTree);
-        const newSelectId = item.parentId || item.workSpaceParentId || 0;
-        pageStore.setSelectId(newSelectId);
+    const request = role === 'admin' ? pageStore.adminDeleteDoc : pageStore.deleteDoc;
+    request(spaceId).then(() => {
+      // 更改
+      let newTree = removeItemFromTree(spaceData, {
+        ...item,
+        parentId: item.parentId || item.workSpaceParentId || spaceData.rootId,
+      }, true);
+      const newSelectId = item.parentId || item.workSpaceParentId || spaceData.rootId;
+      newTree = mutateTree(newTree, newSelectId, { isClick: true });
+      pageStore.setWorkSpaceByCode(code, newTree);
+      pageStore.setSelectId(newSelectId);
+      if (newSelectId !== spaceData.rootId) {
         loadPage(newSelectId);
-      }).catch((error) => {
-      });
-    } else {
-      pageStore.deleteDoc(spaceId).then(() => {
-        const newTree = removeItemFromTree(spaceData, {
-          ...item,
-          parentId: item.parentId || item.workSpaceParentId || 0,
-        });
-        pageStore.setWorkSpaceByCode(code, newTree);
-        const newSelectId = item.parentId || item.workSpaceParentId || 0;
-        pageStore.setSelectId(newSelectId);
-        loadPage(newSelectId);
-      }).catch((error) => {
-      });
-    }
+      } else {
+        pageStore.setSection('recent');
+        pageStore.queryRecentUpdate();
+        pageStore.setDoc(false);
+        pageStore.loadWorkSpaceAll();
+      }
+    }).catch((error) => {
+      Choerodon.prompt(error);
+    });
   }
-
   function handleDeleteDoc(id, title, role) {
     confirm({
       title: `删除文档"${title}"`,
-      content: `如果文档下面有子级，也会被同时删除，确定要删除文档"${title}"吗?`,
+      content: `文档"${title}"将会被移至回收站，和问题的关联也会移除，您可以在回收站恢复此文档`,
       okText: '删除',
       cancelText: '取消',
       width: 520,
@@ -312,12 +255,12 @@ function DocHome() {
     });
   }
 
+
   function handleShare(id) {
     pageStore.queryShareMsg(id).then(() => {
       pageStore.setShareVisible(true);
     });
   }
-
   /**
    * 处理更多菜单点击事件
    * @param e
@@ -338,7 +281,7 @@ function DocHome() {
         handleDeleteDoc(workSpaceId, title, 'admin');
         break;
       case 'version':
-        history.push(`/knowledge/${urlParams.type}/version?type=${urlParams.type}&id=${urlParams.id}&name=${encodeURIComponent(urlParams.name)}&organizationId=${urlParams.organizationId}&orgId=${urlParams.organizationId}&spaceId=${workSpaceId}`);
+        history.push(`/knowledge/${urlParams.type}/version/${pageStore.baseId}?type=${urlParams.type}&id=${urlParams.id}&name=${encodeURIComponent(urlParams.name)}&organizationId=${urlParams.organizationId}&orgId=${urlParams.organizationId}&spaceId=${workSpaceId}`);
         break;
       case 'export':
         Choerodon.prompt('正在导出，请稍候...');
@@ -354,27 +297,18 @@ function DocHome() {
         break;
     }
   }
-
+  const disabled = getTypeCode() === 'pro' ? ['share', 'org'].includes(spaceCode) : false;
   /**
    * 获取更多操作菜单
    * @returns {XML}
    */
   function getMenus() {
     const docData = pageStore.getDoc;
-    if (readOnly) {
-      return (
-        <Menu onClick={handleMenuClick}>
-          <Menu.Item key="export">
-            导出
-          </Menu.Item>
-        </Menu>
-      );
+    if (disabled || readOnly) {
+      return <span />;
     }
     return (
       <Menu onClick={handleMenuClick}>
-        <Menu.Item key="export">
-          导出
-        </Menu.Item>
         <Menu.Item key="move">
           移动
         </Menu.Item>
@@ -395,18 +329,56 @@ function DocHome() {
               type={levelType}
               projectId={proId}
               organizationId={orgId}
-              service={[`knowledgebase-service.work-space-${levelType}.delete`]}
+              service={levelType === 'project' 
+                ? ['choerodon.code.project.cooperation.knowledge.ps.doc.delete']
+                : ['choerodon.code.organization.knowledge.ps.doc.delete']}
             >
               <Menu.Item key="adminDelete">
                 删除
               </Menu.Item>
             </Permission>
           )}
+
       </Menu>
     );
   }
-
-  function handleCreateClick(parent) {
+  function handleCreateClick() {
+    pageStore.setMode('view');
+    CreateDoc({
+      onCreate: async ({ title, template: templateId }) => {
+        const workSpace = pageStore.getWorkSpace;
+        const spaceData = workSpace[spaceCode].data;
+        const currentCode = pageStore.getSpaceCode;
+        let newTree = spaceData;
+        const vo = {
+          title: title.trim(),
+          content: '',
+          parentWorkspaceId: selectId || spaceData.rootId,
+        };
+        const data = templateId ? await pageStore.createWorkSpaceWithTemplate(vo, templateId) : await pageStore.createWorkSpace(vo);
+        if (selectId) {
+          if (currentCode !== spaceCode) {
+            const newSpace = mutateTree(workSpace[currentCode].data, selectId, { isClick: false });
+            pageStore.setWorkSpaceByCode(currentCode, newSpace);
+          } else {
+            newTree = mutateTree(spaceData, selectId, { isClick: false });
+          }
+        }
+        newTree = addItemToTree(
+          newTree,
+          { ...data.workSpace, createdBy: data.createdBy, isClick: true },
+          'create',
+        );
+        pageStore.setWorkSpaceByCode(spaceCode, newTree);
+        loadPage(data.workSpace.id, 'create');
+        setSaving(false);
+        setCreating(false);
+        setLoading(false);
+      },
+      pageStore,
+    });
+  }
+  function handleCreateClickInTree(parent) {
     if (levelType === 'project') {
       pageStore.setSpaceCode('pro');
     }
@@ -423,7 +395,7 @@ function DocHome() {
     if (saving) {
       return;
     }
-    const spaceCode = levelType === 'project' ? 'pro' : 'org';
+
     const workSpace = pageStore.getWorkSpace;
     const spaceData = workSpace[spaceCode].data;
     if (!creating && spaceData) {
@@ -434,30 +406,12 @@ function DocHome() {
         hasChildren: false,
         isExpanded: false,
         id: 'create',
-        parentId: (parent && parent.id) || 0,
+        parentId: (parent && parent.id) || spaceData.rootId,
       };
       const newTree = addItemToTree(spaceData, item);
       pageStore.setWorkSpaceByCode(spaceCode, newTree);
     }
   }
-
-  function handleImportClick() {
-    pageStore.setImportVisible(true);
-  }
-
-  function handleLogClick() {
-    const { workSpace } = pageStore.getDoc;
-    if (workSpace) {
-      const { id: workSpaceId } = workSpace;
-      handleShare(workSpaceId);
-    }
-  }
-
-  function handleEditClick() {
-    pageStore.setCatalogVisible(false);
-    pageStore.setMode('edit');
-  }
-
   /**
    * 回车/确认按钮创建空间
    * @param value
@@ -466,7 +420,6 @@ function DocHome() {
   function handleSpaceSave(value, item) {
     setSaving(true);
     setLoading(true);
-    const spaceCode = levelType === 'project' ? 'pro' : 'org';
     const currentCode = pageStore.getSpaceCode;
     const workSpace = pageStore.getWorkSpace;
     const spaceData = workSpace[spaceCode].data;
@@ -475,7 +428,7 @@ function DocHome() {
       setCreating(false);
       newTree = removeItemFromTree(spaceData, {
         ...item,
-        parentId: item.parentId || item.workSpaceParentId || 0,
+        parentId: item.parentId || item.workSpaceParentId || spaceData.rootId,
       });
     }
     pageStore.setWorkSpaceByCode(spaceCode, newTree);
@@ -508,6 +461,43 @@ function DocHome() {
       setLoading(false);
     });
   }
+  function handleTemplateCreateClick() {
+    CreateTemplate({
+      pageStore,
+    });
+  }
+  function handleImportClick() {
+    pageStore.setImportVisible(true);
+  }
+
+  function handleLogClick() {
+    const { workSpace } = pageStore.getDoc;
+    if (workSpace) {
+      const { id: workSpaceId } = workSpace;
+      handleShare(workSpaceId);
+    }
+  }
+  async function handleCopyClick() {
+    const workSpace = pageStore.getWorkSpace;
+    const spaceData = workSpace[spaceCode].data;
+    let newTree = spaceData;
+    const data = await pageStore.copyWorkSpace(selectId);
+    newTree = mutateTree(spaceData, selectId, { isClick: false });
+    pageStore.setSelectId(data.id);
+    newTree = addItemToTree(
+      newTree,
+      { ...data.workSpace, createdBy: data.createdBy, isClick: true },
+      'create',
+    );
+    pageStore.setWorkSpaceByCode(spaceCode, newTree);
+    loadPage(data.workSpace.id, 'create');
+  }
+  function handleEditClick() {
+    pageStore.setCatalogVisible(false);
+    pageStore.setMode('edit');
+    setLogVisible(false);
+  }
+
 
   function handleSearch() {
     if (searchValue) {
@@ -565,62 +555,85 @@ function DocHome() {
     pageStore.setFullScreen(!isFullScreen);
   }
 
-  function handleBuzzClick() {
-    setLogVisible(false);
-    setBuzzVisible(!buzzVisible);
-    setDefaultOpenId(false);
-  }
-
   return (
     <Page
       className="c7n-kb-doc"
+      service={levelType === 'project' ? [
+        // 项目层
+        'choerodon.code.project.cooperation.knowledge.ps.choerodon.code.project.cooperation.knowledge.page',
+      ] 
+        : [
+          'choerodon.code.organization.knowledge.ps.doc',
+          'choerodon.code.organization.knowledge.ps.doc.delete',
+          'choerodon.code.organization.knowledge.ps.template.delete',
+          'choerodon.code.organization.knowledge.ps.page_comment.delete',
+        ]}
     >
-      {!fullScreen
-        ? (
-          <Header>
-            <span style={{ display: 'flex', justifyContent: 'space-between', width: 'calc(100% - 20px)' }}>
-              <span>
-                <Button
-                  funcType="flat"
-                  onClick={handleCreateClick}
-                  disabled={levelType === 'organization' && readOnly}
-                >
-                  <Icon type="playlist_add icon" />
-                  <FormattedMessage id="create" />
-                </Button>
-                <Button
-                  funcType="flat"
-                  onClick={handleImportClick}
-                  disabled={levelType === 'organization' && readOnly}
-                >
-                  <Icon type="archive icon" />
-                  <FormattedMessage id="import" />
-                </Button>
-                <div
-                  style={{
-                    height: '60%',
-                    width: 1,
-                    margin: '0 20px',
-                    border: '.001rem solid rgb(0, 0, 0, 0.12)',
-                    display: 'inline-block',
-                    verticalAlign: 'middle',
-                  }}
-                />
-                {selectId
-                  ? (
-                    <Fragment>
+      {!fullScreen && (
+        <Header>
+          {section !== 'template'
+            ? (
+              <span style={{ display: 'flex', justifyContent: 'space-between', width: 'calc(100% - 20px)' }}>
+                <span>
+                  <Button
+                    funcType="flat"
+                    onClick={handleCreateClick}
+                    disabled={disabled || readOnly}
+                  >
+                    <Icon type="playlist_add icon" />
+                    创建文档
+                  </Button>
+                  <Button
+                    funcType="flat"
+                    onClick={handleImportClick}
+                    disabled={disabled || readOnly}
+                  >
+                    <Icon type="archive icon" />
+                    <FormattedMessage id="import" />
+                  </Button>
+                  {section === 'tree' && selectId && (
+                  <Button
+                    funcType="flat"
+                    onClick={handleCopyClick}
+                    disabled={disabled || readOnly}
+                  >
+                    <Icon type="content_copy" />
+                    复制
+                  </Button>
+                  )}
+                  <div
+                    style={{
+                      height: '60%',
+                      width: 1,
+                      margin: '0 20px',
+                      border: '.001rem solid rgb(0, 0, 0, 0.12)',
+                      display: 'inline-block',
+                      verticalAlign: 'middle',
+                    }}
+                  />
+                  {section === 'tree' && selectId && (
+                    // eslint-disable-next-line react/jsx-fragments
+                    <React.Fragment>
                       <Button
                         funcType="flat"
                         onClick={handleEditClick}
-                        disabled={readOnly}
+                        disabled={disabled || readOnly}
                       >
                         <Icon type="mode_edit icon" />
                         <FormattedMessage id="edit" />
                       </Button>
                       <Button
                         funcType="flat"
+                        onClick={() => handleMenuClick({ key: 'export' })}
+                        disabled={disabled || readOnly}
+                      >
+                        <Icon type="unarchive" />
+                        导出
+                      </Button>
+                      <Button
+                        funcType="flat"
                         onClick={handleLogClick}
-                        disabled={readOnly}
+                        disabled={disabled || readOnly}
                       >
                         <Icon type="share icon" />
                         <FormattedMessage id="share" />
@@ -628,50 +641,48 @@ function DocHome() {
                       <Dropdown overlay={getMenus()} trigger={['click']}>
                         <i className="icon icon-more_vert" style={{ margin: '0 20px', color: '#3f51b5', cursor: 'pointer', verticalAlign: 'text-bottom' }} />
                       </Dropdown>
-                      {hasBuzz && (
-                        <Button
-                          funcType="flat"
-                          onClick={handleBuzzClick}
-                          disabled={readOnly}
-                        >
-                          <Icon type="question_answer" />
-                          <FormattedMessage id="page.doc.buzz" />
-                        </Button>
-                      )}
-                    </Fragment>
-                  ) : null
-                }
-                <Button onClick={toggleFullScreenEdit}>
-                  <Icon type="fullscreen" />
-                  <FormattedMessage id="fullScreen" />
-                </Button>
-              </span>
-              <span className="c7n-kb-doc-search">
-                <Input
-                  className="hidden-label"
-                  placeholder="搜索"
-                  value={searchValue}
-                  onPressEnter={handleSearch}
-                  onChange={handleSearchChange}
-                  prefix={(
-                    <Icon
-                      type="search"
-                      className="c7n-kb-doc-search-icon"
-                      onClick={handleSearch}
-                    />
+                    </React.Fragment>
                   )}
-                />
+                  <Button onClick={toggleFullScreenEdit}>
+                    <Icon type="fullscreen" />
+                    <FormattedMessage id="fullScreen" />
+                  </Button>
+                </span>
+                <span className="c7n-kb-doc-search">
+                  <Input
+                    className="hidden-label"
+                    placeholder="搜索"
+                    value={searchValue}
+                    onPressEnter={handleSearch}
+                    onChange={handleSearchChange}
+                    prefix={(
+                      <Icon
+                        type="search"
+                        className="c7n-kb-doc-search-icon"
+                        onClick={handleSearch}
+                      />
+                    )}
+                  />
+                </span>
               </span>
-            </span>
-          </Header>
-        ) : null}
+            ) : (
+              <Button
+                funcType="flat"
+                icon="playlist_add"
+                onClick={handleTemplateCreateClick}
+              >
+                创建模板
+              </Button>
+            )}
+        </Header>
+      )}
       {!fullScreen
         ? (
           <Content style={{ padding: 0, height: '100%' }}>
-            <Breadcrumb />
+            <Breadcrumb title={queryString.parse(history.location.search).baseName || ''} />
             <div style={{ height: 'calc( 100% - 65px )' }}>
               <Spin spinning={loading}>
-                <ResizeContainer type="horizontal" style={{ borderTop: '1px solid #d3d3d3' }}>
+                <ResizeContainer type="horizontal">
                   {searchVisible
                     ? (
                       <SearchList
@@ -697,12 +708,12 @@ function DocHome() {
                       >
                         <div className="c7n-kb-doc-left">
                           <WorkSpace
-                            readOnly={readOnly}
+                            readOnly={disabled}
                             forwardedRef={workSpaceRef}
                             onClick={loadPage}
                             onSave={handleSpaceSave}
                             onDelete={handleDeleteDoc}
-                            onCreate={handleCreateClick}
+                            onCreate={handleCreateClickInTree}
                             onCancel={handleCancel}
                           />
                         </div>
@@ -721,10 +732,9 @@ function DocHome() {
                     <Spin spinning={docLoading}>
                       <div className="c7n-kb-doc-doc">
                         <div className="c7n-kb-doc-content">
-                          {selectId
-                            ? (
-                              <DocEditor readOnly={readOnly} loadWorkSpace={loadWorkSpace} searchText={searchValue} />
-                            ) : <HomePage pageStore={pageStore} onClick={loadWorkSpace} />}
+                          {section === 'recent' && <HomePage pageStore={pageStore} onClick={loadWorkSpace} />}
+                          {section === 'tree' && <DocEditor readOnly={disabled || readOnly} loadWorkSpace={loadWorkSpace} searchText={searchValue} editTitleBefore={() => setLogVisible(false)} />}
+                          {section === 'template' && <Template />}
                         </div>
                       </div>
                     </Spin>
@@ -814,9 +824,11 @@ function DocHome() {
         type={levelType}
         projectId={proId}
         organizationId={orgId}
-        service={[`knowledgebase-service.work-space-${levelType}.delete`]}
-      />
-      <AttachmentRender />
+        service={levelType === 'project' 
+          ? ['choerodon.code.project.cooperation.knowledge.ps.doc.delete']
+          : ['choerodon.code.organization.knowledge.ps.doc.delete']}
+      >{null}
+      </Permission>
       <DocModal
         store={pageStore}
         selectId={selectId}
@@ -825,17 +837,6 @@ function DocHome() {
         handleDeleteDraft={handleDeleteDraft}
         handleLoadDraft={handleLoadDraft}
       />
-      {buzzVisible
-        ? (
-          <CooperateSide
-            defaultOpenId={defaultOpenId && Number(defaultOpenId)}
-            linkParam={{
-              linkId: selectId,
-              linkType: 'knowledge_page',
-            }}
-            onClose={handleBuzzClick}
-          />
-        ) : null}
     </Page>
   );
 }

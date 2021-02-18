@@ -1,20 +1,26 @@
 package io.choerodon.kb.infra.dto;
 
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
-import io.choerodon.mybatis.entity.BaseDTO;
+import io.choerodon.mybatis.annotation.ModifyAudit;
+import io.choerodon.mybatis.annotation.VersionAudit;
+import io.choerodon.mybatis.domain.AuditDomain;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 
 /**
  * Created by Zenger on 2019/4/29.
  */
+@ModifyAudit
+@VersionAudit
 @Table(name = "kb_page_log")
-public class PageLogDTO extends BaseDTO {
+public class PageLogDTO extends AuditDomain {
+    public static final String FIELD_PAGE_ID = "pageId";
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue
+    @Encrypt
     private Long id;
     private Long pageId;
     private String operation;

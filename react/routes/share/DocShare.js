@@ -17,7 +17,7 @@ import DocEmpty from '../../components/DocEmpty/DocEmpty';
 import WorkSpaceShare, { addItemToTree, removeItemFromTree } from '../../components/WorkSpaceShare';
 import ResizeContainer from '../../components/ResizeDivider/ResizeContainer';
 import NoMatch from '../../components/ErrorPages/404';
-import './style/DocShare.scss';
+import './style/DocShare.less';
 
 const { Section, Divider } = ResizeContainer;
 const { AppState } = stores;
@@ -51,8 +51,8 @@ class DocShare extends Component {
     const { match } = this.props;
     const spaceData = DocStore.getShareWorkSpace;
     // 默认选中第一篇文档
-    if (spaceData.items && spaceData.items['0'] && spaceData.items['0'].children.length) {
-      const selectId = spaceData.items['0'].children[0];
+    if (spaceData.items && spaceData.items[spaceData.rootId] && spaceData.items[spaceData.rootId].children.length) {
+      const selectId = spaceData.items[spaceData.rootId].children[0];
       // 加载第一篇文档
       DocStore.getDocByToken(selectId, match.params.token);
       // 选中第一篇文档菜单

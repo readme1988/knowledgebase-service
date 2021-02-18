@@ -22,17 +22,41 @@ const UserHead = memo(({
   style,
   type,
   tooltip = true,
+  extraToolTip,
 }) => {
   const iconSize = size || 18;
   const {
-    id, loginName, realName, avatar, imageUrl, email, ldap, name,
-  } = user;
+    id, imageUrl, email, ldap, avatar,
+  } = user || {};
+  let { loginName, realName, name } = user || {};
+
+  if (!id) {
+    loginName = '管理员';
+    realName = '管理员';
+    name = '管理员';
+  }
+
   const img = avatar || imageUrl;
+
   const renderTooltip = () => {
     if (name) {
       return name;
-    } else {
+    } else if (!extraToolTip) {
       return ldap ? `${realName}(${loginName})` : `${realName}(${email})`;
+    } else if (extraToolTip) {
+      return ldap ? (
+        <span>
+          {`${realName}(${loginName})`}
+          <br />
+          {extraToolTip}
+        </span>
+      ) : (
+        <span>
+          {`${realName}(${email})`}
+          <br />
+          {extraToolTip}
+        </span>
+      );
     }
   };
 

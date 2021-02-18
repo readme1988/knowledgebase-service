@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { withRouter } from 'react-router-dom';
-import { Icon, Popconfirm, Input, Button } from 'choerodon-ui';
+import {
+  Icon, Popconfirm, Input, Button,
+} from 'choerodon-ui';
 import { stores, Permission, Choerodon } from '@choerodon/boot';
 import TimeAgo from 'timeago-react';
 import { Tooltip } from 'choerodon-ui/pro/lib';
@@ -55,7 +57,8 @@ function CommentList(props) {
   }
 
   function renderComment(comment) {
-    const { id, createUser, userId, lastUpdateDate } = comment;
+    const { id, createUser, lastUpdateDate } = comment;
+    const userId = createUser.id;
     return (
       <div key={id} className="c7n-kb-commentItem">
         {id === editCommentId
@@ -125,7 +128,9 @@ function CommentList(props) {
                         type={type}
                         projectId={projectId}
                         organizationId={orgId}
-                        service={[`knowledgebase-service.page-comment-${type}.deleteComment`]}
+                        service={type === 'project'
+                          ? ['choerodon.code.project.cooperation.knowledge.ps.page_comment.delete']
+                          : ['choerodon.code.organization.knowledge.ps.page_comment.delete']}
                       >
                         <Popconfirm
                           title="确认要删除该评论吗?"

@@ -2,6 +2,7 @@ package io.choerodon.kb.api.vo;
 
 import io.choerodon.kb.infra.feign.vo.UserDO;
 import io.swagger.annotations.ApiModelProperty;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 
 import java.util.Date;
 
@@ -11,6 +12,7 @@ import java.util.Date;
  */
 public class PageInfoVO {
     @ApiModelProperty(value = "页面ID")
+    @Encrypt
     private Long id;
     @ApiModelProperty(value = "页面标题")
     private String title;
@@ -26,17 +28,21 @@ public class PageInfoVO {
     @ApiModelProperty(value = "乐观锁版本号")
     private Long objectVersionNumber;
     @ApiModelProperty(value = "页面创建人id")
+    @Encrypt
     private Long createdBy;
     @ApiModelProperty(value = "创建用户对象")
     private UserDO createUser;
     @ApiModelProperty(value = "页面创建日期")
     private Date creationDate;
     @ApiModelProperty(value = "页面最后修改人id")
+    @Encrypt
     private Long lastUpdatedBy;
     @ApiModelProperty(value = "页面最后修改用户对象")
     private UserDO lastUpdatedUser;
     @ApiModelProperty(value = "页面最后修改日期")
     private Date lastUpdateDate;
+    @ApiModelProperty(value = "baseId")
+    private Long baseId;
 
     public Long getId() {
         return id;
@@ -140,5 +146,13 @@ public class PageInfoVO {
 
     public void setHighlightContent(String highlightContent) {
         this.highlightContent = highlightContent;
+    }
+
+    public Long getBaseId() {
+        return baseId;
+    }
+
+    public void setBaseId(Long baseId) {
+        this.baseId = baseId;
     }
 }

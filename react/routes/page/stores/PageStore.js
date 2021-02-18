@@ -1,27 +1,44 @@
 import axios from 'axios';
 import { observable, action, computed, toJS } from 'mobx';
 import { store, Choerodon } from '@choerodon/boot';
+import { mutateTree } from '@atlaskit/tree';
 import FileSaver from 'file-saver';
 
 const FileUploadTimeout = 300000;
 
 @store('PageStore')
 class PageStore {
-  @observable apiGetway = '';
+  @observable apiGateway = '';
 
   @observable orgId = '';
 
+  setBaseId(baseId) {
+    this.baseId = baseId;
+  }
+
+  setTemplateDataSet(dataSet) {
+    this.templateDataSet = dataSet;
+  }
+
   @action initCurrentMenuType(data) {
     const { type, id, organizationId } = data;
-    this.apiGetway = `/knowledge/v1/${type}s/${id}`;
+    this.config = data;
+    this.apiGateway = `/knowledge/v1/${type}s/${id}`;
     this.orgId = organizationId;
   }
 
   // 空间数据
   @observable workSpace = {};
 
+  // 回收站数据
+  @observable recycleWorkSpace = {};
+
   @action setWorkSpace(data) {
     this.workSpace = data;
+  }
+
+  @action setRecycleWorkSpace(data) {
+    this.recycleWorkSpace = data;
   }
 
   @action setWorkSpaceByCode(code, data) {
@@ -36,6 +53,10 @@ class PageStore {
 
   @computed get getWorkSpace() {
     return toJS(this.workSpace);
+  }
+
+  @computed get getRecycleWorkSpace() {
+    return toJS(this.recycleWorkSpace);
   }
 
   // 空间code
@@ -72,11 +93,36 @@ class PageStore {
     };
   }
 
+  // 当前选中块，最近更新，tree，模板
+  @observable section = 'recent';
+
+  @action setSection(data) {
+    if (data !== 'tree') {
+      this.setSelectId(false);
+    }
+    this.section = data;
+  }
+
   // 当前选中空间
   @observable selectId = false;
 
   @action setSelectId(data) {
+    if (data) {
+      this.setSection('tree');
+    } else {
+      this.clearTreeSelected();
+    }
     this.selectId = data;
+  }
+
+  @action clearTreeSelected() {
+    this.setCatalogVisible(false);
+    const lastClickId = this.selectId;
+    const { spaceCode, workSpace } = this;
+    if (lastClickId && spaceCode) {
+      const newSpace = mutateTree(workSpace[spaceCode].data, lastClickId, { isClick: false });
+      this.setWorkSpaceByCode(spaceCode, newSpace);
+    }
   }
 
   @computed get getSelectId() {
@@ -137,7 +183,7 @@ class PageStore {
         ...file[0],
         uid,
       },
-      ...this.fileList.filter((item) => (!item.uid || item.uid !== uid)),
+      ...this.fileList.filter(item => (!item.uid || item.uid !== uid)),
     ];
   }
 
@@ -394,10 +440,10 @@ class PageStore {
   /**
    * 加载可选空间
    */
-  loadWorkSpaceSelect = (type) => axios.get(`${this.apiGetway}/work_space/all_tree?organizationId=${this.orgId}`).then((res) => {
+  loadWorkSpaceSelect = () => axios.get(`${this.apiGateway}/work_space/all_tree?organizationId=${this.orgId}&baseId=${this.baseId}`).then((res) => {
     if (res && !res.failed) {
-      if (type && res[type] && res[type].data) {
-        this.setImportWorkSpace(res[type].data);
+      if (res.data) {
+        this.setImportWorkSpace(res.data);
       } else {
         this.setImportWorkSpace(false);
       }
@@ -410,17 +456,14 @@ class PageStore {
   /**
    * 加载完整空间
    * @param id 默认展开文档id
-   * @param type 显示类型
    */
-  loadWorkSpaceAll = (id, type) => axios.get(`${this.apiGetway}/work_space/all_tree?organizationId=${this.orgId}${id ? `&expandWorkSpaceId=${id}` : ''}`).then((res) => {
+  loadWorkSpaceAll = id => axios.get(`${this.apiGateway}/work_space/all_tree?organizationId=${this.orgId}&baseId=${this.baseId}${id ? `&expandWorkSpaceId=${id}` : ''}`).then((res) => {
     if (res && !res.failed) {
-      if (type && res[type]) {
-        this.setWorkSpace({
-          [type]: res[type],
-        });
-      } else {
-        this.setWorkSpace(res);
-      }
+      const { code } = res;
+      this.setWorkSpace({
+        [code]: res,
+      });
+      this.setSpaceCode(code);
     }
     return res;
   }).catch((e) => {
@@ -431,7 +474,39 @@ class PageStore {
    * 创建空间
    * @param vo
    */
-  createWorkSpace = (vo) => axios.post(`${this.apiGetway}/work_space?organizationId=${this.orgId}`, vo).then((res) => {
+  createWorkSpace = vo => axios.post(`${this.apiGateway}/work_space?organizationId=${this.orgId}`, { ...vo, baseId: this.baseId }).then((res) => {
+    if (res && !res.failed) {
+      return res;
+    } else {
+      Choerodon.prompt(res.message);
+      return false;
+    }
+  }).catch(() => {
+    Choerodon.prompt('创建失败！');
+    return false;
+  });
+
+  /**
+   * 创建空间
+   * @param id
+   */
+  copyWorkSpace = id => axios.post(`${this.apiGateway}/work_space/clone_page?organizationId=${this.orgId}&workSpaceId=${id}`).then((res) => {
+    if (res && !res.failed) {
+      return res;
+    } else {
+      Choerodon.prompt(res.message);
+      return false;
+    }
+  }).catch(() => {
+    Choerodon.prompt('复制失败！');
+    return false;
+  });
+
+  /**
+   * 创建空间
+   * @param vo
+   */
+  createWorkSpaceWithTemplate = (vo, templateId) => axios.post(`${this.apiGateway}/page/with_template?organizationId=${this.orgId}&templateId=${templateId}`, { ...vo, baseId: this.baseId }).then((res) => {
     if (res && !res.failed) {
       return res;
     } else {
@@ -447,7 +522,7 @@ class PageStore {
    * 创建文档
    * @param vo
    */
-  createDoc = (vo) => axios.post(`${this.apiGetway}/page?organizationId=${this.orgId}`, vo).then((res) => {
+  createDoc = vo => axios.post(`${this.apiGateway}/page?organizationId=${this.orgId}`, vo).then((res) => {
     if (res && !res.failed) {
       return res;
     } else {
@@ -464,7 +539,7 @@ class PageStore {
    * @param id
    * @param searchValue
    */
-  loadDoc = (id, searchValue) => axios.get(`${this.apiGetway}/work_space/${id}?organizationId=${this.orgId}${searchValue ? `&searchStr=${searchValue}` : ''}`).then((res) => {
+  loadDoc = (id, searchValue) => axios.get(`${this.apiGateway}/work_space/${id}?organizationId=${this.orgId}${searchValue ? `&searchStr=${searchValue}` : ''}`).then((res) => {
     if (res && !res.failed) {
       this.setDoc(res);
       if (res.hasDraft) {
@@ -483,7 +558,7 @@ class PageStore {
    * @param id
    * @param doc
    */
-  editDoc = (id, doc, searchText) => axios.put(`${this.apiGetway}/work_space/${id}?organizationId=${this.orgId}${searchText ? `&searchStr=${searchText}` : ''}`, doc).then((res) => {
+  editDoc = (id, doc, searchText) => axios.put(`${this.apiGateway}/work_space/${id}?organizationId=${this.orgId}${searchText ? `&searchStr=${searchText}` : ''}`, doc).then((res) => {
     if (res && !res.failed) {
       this.setDraftVisible(false);
       this.setDoc(res);
@@ -507,7 +582,30 @@ class PageStore {
     }
   }).catch((e) => {
     Choerodon.prompt('保存失败！');
+    throw e;
   });
+
+  /**
+   * 编辑模板
+   * @param id
+   * @param doc
+   */
+  editTemplate = (id, doc) => axios.put(`${this.apiGateway}/document_template/${id}?organizationId=${this.orgId}`, doc).then((res) => {
+    if (res && !res.failed) {
+      Choerodon.prompt('保存成功！');
+    } else {
+      throw new Error('保存失败！');
+    }
+  }).catch((e) => {
+    Choerodon.prompt('保存失败！');
+  });
+
+  /**
+   * 模板到回收站
+   * @param id
+   * @param doc
+   */
+  deleteTemplate = id => axios.put(`${this.apiGateway}/document_template/remove/${id}?organizationId=${this.orgId}`)
 
   /**
    * 自动保存
@@ -515,7 +613,7 @@ class PageStore {
    * @param doc
    */
   autoSaveDoc = (id, doc) => {
-    axios.put(`${this.apiGetway}/page/auto_save?organizationId=${this.orgId}&pageId=${id}`, doc).then((res) => {
+    axios.put(`${this.apiGateway}/page/auto_save?organizationId=${this.orgId}&pageId=${id}`, doc).then((res) => {
       this.setDraftVisible(true);
       Choerodon.prompt('自动保存成功！');
     }).catch(() => {
@@ -527,7 +625,7 @@ class PageStore {
    * 加载草稿文档
    * @param id
    */
-  loadDraftDoc = (id) => axios.get(`${this.apiGetway}/page/draft_page?organizationId=${this.orgId}&pageId=${id}`).then((res) => {
+  loadDraftDoc = id => axios.get(`${this.apiGateway}/page/draft_page?organizationId=${this.orgId}&pageId=${id}`).then((res) => {
     if (res && !res.failed) {
       this.setDoc({
         ...this.doc,
@@ -547,7 +645,7 @@ class PageStore {
    * 删除草稿
    * @param id
    */
-  deleteDraftDoc = (id) => axios.delete(`${this.apiGetway}/page/delete_draft?organizationId=${this.orgId}&pageId=${id}`).then(() => {
+  deleteDraftDoc = id => axios.delete(`${this.apiGateway}/page/delete_draft?organizationId=${this.orgId}&pageId=${id}`).then(() => {
     this.setDraftVisible(false);
   });
 
@@ -555,20 +653,27 @@ class PageStore {
    * 创建者删除文档，后端进行创建人校验
    * @param id
    */
-  deleteDoc = (id) => axios.delete(`${this.apiGetway}/work_space/delete_my/${id}?organizationId=${this.orgId}`);
+  deleteDoc = id => axios.put(`${this.apiGateway}/work_space/remove_my/${id}?organizationId=${this.orgId}`);
 
   /**
    * 管理员删除文档，后端进行权限校验
    * @param id
    */
-  adminDeleteDoc = (id) => axios.delete(`${this.apiGetway}/work_space/${id}?organizationId=${this.orgId}`);
+  adminDeleteDoc = id => axios.put(`${this.apiGateway}/work_space/remove/${id}?organizationId=${this.orgId}`);
+
+  /**
+     *管理员彻底删除文档
+     * @param id
+   */
+  adminRealDeleteDoc = id => axios.delete(`${this.apiGateway}/work_space/delete/${id}?organizationId=${this.orgId}`);
+
 
   /**
    * 移动空间
    * @param id 移动到空间id
    * @param vo
    */
-  moveWorkSpace = (id, vo) => axios.post(`${this.apiGetway}/work_space/to_move/${id}?organizationId=${this.orgId}`, vo).then((res) => {
+  moveWorkSpace = (id, vo) => axios.post(`${this.apiGateway}/work_space/to_move/${id}?organizationId=${this.orgId}`, vo).then((res) => {
     if (res && res.failed) {
       Choerodon.prompt(res.message);
     }
@@ -581,13 +686,13 @@ class PageStore {
    * 设置默认编辑模式
    * @param vo 评论
    */
-  editDefaultMode = (vo) => axios.post(`${this.apiGetway}/user_setting?organizationId=${this.orgId}`, vo);
+  editDefaultMode = vo => axios.post(`${this.apiGateway}/user_setting?organizationId=${this.orgId}`, vo);
 
   /**
    * 创建评论
    * @param vo 评论
    */
-  createComment = (vo) => axios.post(`${this.apiGetway}/page_comment?organizationId=${this.orgId}`, vo).then((res) => {
+  createComment = vo => axios.post(`${this.apiGateway}/page_comment?organizationId=${this.orgId}`, vo).then((res) => {
     if (res && res.failed) {
       Choerodon.prompt(res.message);
     } else {
@@ -606,10 +711,10 @@ class PageStore {
    * @param id
    * @param vo
    */
-  editComment = (id, vo) => axios.put(`${this.apiGetway}/page_comment/${id}?organizationId=${this.orgId}`, vo).then((res) => {
+  editComment = (id, vo) => axios.put(`${this.apiGateway}/page_comment/${id}?organizationId=${this.orgId}`, vo).then((res) => {
     this.setCommentList([
       res,
-      ...this.commentList.filter((c) => c.id !== res.id),
+      ...this.commentList.filter(c => c.id !== res.id),
     ]);
   }).catch(() => {
     Choerodon.prompt('加载评论失败！');
@@ -619,9 +724,9 @@ class PageStore {
    * 删除评论
    * @param id
    */
-  deleteComment = (id) => axios.delete(`${this.apiGetway}/page_comment/delete_my/${id}?organizationId=${this.orgId}`).then((res) => {
+  deleteComment = id => axios.delete(`${this.apiGateway}/page_comment/delete_my/${id}?organizationId=${this.orgId}`).then((res) => {
     this.setCommentList([
-      ...this.commentList.filter((c) => c.id !== id),
+      ...this.commentList.filter(c => c.id !== id),
     ]);
   }).catch(() => {
     Choerodon.prompt('删除评论失败！');
@@ -631,9 +736,9 @@ class PageStore {
    * admin删除评论，校验权限
    * @param id
    */
-  adminDeleteComment = (id) => axios.delete(`${this.apiGetway}/page_comment/${id}?organizationId=${this.orgId}`).then((res) => {
+  adminDeleteComment = id => axios.delete(`${this.apiGateway}/page_comment/${id}?organizationId=${this.orgId}`).then((res) => {
     this.setCommentList([
-      ...this.commentList.filter((c) => c.id !== id),
+      ...this.commentList.filter(c => c.id !== id),
     ]);
   }).catch(() => {
     Choerodon.prompt('删除评论失败！');
@@ -643,8 +748,8 @@ class PageStore {
    * 加载附件
    * @param id
    */
-  loadAttachment = (id) => axios.get(`${this.apiGetway}/page_attachment/list?pageId=${id}&organizationId=${this.orgId}`).then((res) => {
-    this.setAttachment(res.map((file) => ({
+  loadAttachment = id => axios.get(`${this.apiGateway}/page_attachment/list?pageId=${id}&organizationId=${this.orgId}`).then((res) => {
+    this.setAttachment(res.map(file => ({
       ...file,
       uid: file.id,
     })));
@@ -659,6 +764,31 @@ class PageStore {
    */
   uploadFile = (data, config) => {
     const {
+      pageId,
+    } = config;
+    const axiosConfig = {
+      headers: { 'content-type': 'multipart/form-data' },
+      timeout: FileUploadTimeout,
+    };
+    if (data.get('file')) {
+      return axios.post(
+        `${this.apiGateway}/page_attachment?pageId=${pageId}&organizationId=${this.orgId}`,
+        data,
+        axiosConfig,
+      ).then((res) => {
+        this.setFileListByUid(config.uid, res);
+        Choerodon.prompt('附件上传成功！');
+      });
+    }
+  };
+
+  /**
+   * 模板上传附件
+   * @param data
+   * @param config
+   */
+  uploadFileForTemplate = (data, config) => {
+    const {
       pageId, versionId,
     } = config;
     const axiosConfig = {
@@ -667,7 +797,7 @@ class PageStore {
     };
     if (data.get('file')) {
       return axios.post(
-        `${this.apiGetway}/page_attachment?pageId=${pageId}&versionId=${versionId}&organizationId=${this.orgId}`,
+        `${this.apiGateway}/document_template/upload_attach?pageId=${pageId}&versionId=${versionId}&organizationId=${this.orgId}`,
         data,
         axiosConfig,
       ).then((res) => {
@@ -682,11 +812,11 @@ class PageStore {
    * @param id
    */
   deleteFile = (id) => {
-    axios.delete(`${this.apiGetway}/page_attachment/${id}?organizationId=${this.orgId}`).then((res) => {
+    axios.delete(`${this.apiGateway}/page_attachment/${id}?organizationId=${this.orgId}`).then((res) => {
       if (res && res.failed) {
         Choerodon.prompt('删除失败');
       } else {
-        this.setFileList(this.fileList.filter((file) => file.id !== id));
+        this.setFileList(this.fileList.filter(file => file.id !== id));
         Choerodon.prompt('删除成功');
       }
     }).catch(() => {
@@ -698,11 +828,11 @@ class PageStore {
    * 批量删除附件
    * @param list
    */
-  batchDeleteFile = (list) => axios.post(`${this.apiGetway}/page_attachment/batch_delete?organizationId=${this.orgId}`, list).then((res) => {
+  batchDeleteFile = list => axios.post(`${this.apiGateway}/page_attachment/batch_delete?organizationId=${this.orgId}`, list).then((res) => {
     if (res && res.failed) {
       Choerodon.prompt('删除失败，请重试');
     } else {
-      this.setFileList(this.fileList.filter((file) => list.indexOf(file.id) === -1));
+      this.setFileList(this.fileList.filter(file => list.indexOf(file.id) === -1));
     }
   }).catch(() => {
     Choerodon.prompt('删除失败，请稍后重试');
@@ -713,7 +843,7 @@ class PageStore {
    * 加载日志
    * @param id
    */
-  loadLog = (id) => axios.get(`${this.apiGetway}/page_log/${id}?organizationId=${this.orgId}`).then((res) => {
+  loadLog = id => axios.get(`${this.apiGateway}/page_log/${id}?organizationId=${this.orgId}`).then((res) => {
     this.setLog(res);
   }).catch(() => {
     Choerodon.prompt('加载日志失败！');
@@ -723,9 +853,9 @@ class PageStore {
    * 加载版本
    * @param id
    */
-  loadVersion = (id) => axios.get(`${this.apiGetway}/page_version/list?organizationId=${this.orgId}&pageId=${id}`).then((res) => {
+  loadVersion = id => axios.get(`${this.apiGateway}/page_version/list?organizationId=${this.orgId}&pageId=${id}`).then((res) => {
     this.setVersion(res);
-  }).catch(() => {
+  }).catch((e) => {
     Choerodon.prompt('加载版本失败！');
   });
 
@@ -735,13 +865,13 @@ class PageStore {
    * @param secondVersionId
    * @param id
    */
-  compareVersion = (firstVersionId, secondVersionId, id) => axios.get(`${this.apiGetway}/page_version/compare?organizationId=${this.orgId}&firstVersionId=${firstVersionId}&secondVersionId=${secondVersionId}&pageId=${id}`).then((res) => {
+  compareVersion = (firstVersionId, secondVersionId, id) => axios.get(`${this.apiGateway}/page_version/compare?organizationId=${this.orgId}&firstVersionId=${firstVersionId}&secondVersionId=${secondVersionId}&pageId=${id}`).then((res) => {
     if (!res.failed) {
       this.setDocCompare(res);
     } else {
       this.setDocCompare(res);
     }
-  }).catch(() => {
+  }).catch((e) => {
     Choerodon.prompt('加载版本失败！');
   });
 
@@ -751,7 +881,7 @@ class PageStore {
    * @param id
    */
   rollbackVersion =
-    (versionId, id) => axios.get(`${this.apiGetway}/page_version/rollback?organizationId=${this.orgId}&versionId=${versionId}&pageId=${id}`)
+    (versionId, id) => axios.get(`${this.apiGateway}/page_version/rollback?organizationId=${this.orgId}&versionId=${versionId}&pageId=${id}`)
       .catch(() => {
         Choerodon.prompt('回滚版本失败！');
       });
@@ -761,13 +891,13 @@ class PageStore {
    * @param versionId
    * @param id
    */
-  loadDocByVersion = (versionId, id) => axios.get(`${this.apiGetway}/page_version/${versionId}?organizationId=${this.orgId}&pageId=${id}`).then((res) => {
+  loadDocByVersion = (versionId, id) => axios.get(`${this.apiGateway}/page_version/${versionId}?organizationId=${this.orgId}&pageId=${id}`).then((res) => {
     if (!res.failed) {
       this.setDocVersion(res);
     } else {
       this.setDocVersion(res);
     }
-  }).catch(() => {
+  }).catch((e) => {
     Choerodon.prompt('加载版本失败！');
   });
 
@@ -776,7 +906,7 @@ class PageStore {
    * @param id
    * @param fileName
    */
-  exportPdf = (id, fileName) => axios.get(`${this.apiGetway}/page/export_pdf?pageId=${id}&organizationId=${this.orgId}`, { responseType: 'arraybuffer', headers: { 'Access-Control-Allow-Origin': '*' } }).then((data) => {
+  exportPdf = (id, fileName) => axios.get(`${this.apiGateway}/page/export_pdf?pageId=${id}&organizationId=${this.orgId}`, { responseType: 'arraybuffer', headers: { 'Access-Control-Allow-Origin': '*' } }).then((data) => {
     // data为arraybuffer格式，判断已经无效
     if (data && !data.failed) {
       const blob = new Blob([data], { type: 'application/pdf' });
@@ -787,7 +917,7 @@ class PageStore {
     }
   });
 
-  queryShareMsg = (id) => axios.get(`${this.apiGetway}/work_space_share?work_space_id=${id}&organizationId=${this.orgId}`).then((data) => {
+  queryShareMsg = id => axios.get(`${this.apiGateway}/work_space_share?work_space_id=${id}&organizationId=${this.orgId}`).then((data) => {
     if (data && !data.failed) {
       this.setShare(data);
     } else {
@@ -795,7 +925,7 @@ class PageStore {
     }
   });
 
-  updateShare = (id, spaceId, vo) => axios.put(`${this.apiGetway}/work_space_share/${id}?organizationId=${this.orgId}`, vo).then((res) => {
+  updateShare = (id, spaceId, vo) => axios.put(`${this.apiGateway}/work_space_share/${id}?organizationId=${this.orgId}`, vo).then((res) => {
     if (res && !res.failed) {
       this.setShare(res);
     } else {
@@ -811,7 +941,7 @@ class PageStore {
       headers: { 'content-type': 'multipart/form-data' },
       timeout: FileUploadTimeout,
     };
-    return axios.post(`${this.apiGetway}/page/import_word?organizationId=${this.orgId}`, data, axiosConfig);
+    return axios.post(`${this.apiGateway}/page/import_word?organizationId=${this.orgId}`, data, axiosConfig);
   };
 
   /**
@@ -839,7 +969,7 @@ class PageStore {
 
   getAttachmentByToken = (id, token) => axios.get(`/knowledge/v1/work_space_share/page_attachment?page_id=${id}&token=${token}`).then((data) => {
     if (data && !data.failed) {
-      this.setAttachment(data.map((file) => ({
+      this.setAttachment(data.map(file => ({
         ...file,
         uid: file.id,
       })));
@@ -859,11 +989,12 @@ class PageStore {
     }
   });
 
-  queryMoveTree = () => axios.get(`${this.apiGetway}/work_space?organizationId=${this.orgId}`).then((data) => {
+  queryMoveTree = () => axios.get(`${this.apiGateway}/work_space?organizationId=${this.orgId}&baseId=${this.baseId}`).then((data) => {
+    const spaceData = this.workSpace[this.spaceCode].data;
     if (data && !data.failed) {
       const tree = [{
         children: data,
-        id: 0,
+        id: spaceData.rootId,
         name: '全部',
         route: '',
       }];
@@ -873,7 +1004,7 @@ class PageStore {
     }
   });
 
-  querySearchList = (str) => axios.get(`${this.apiGetway}/page/full_text_search?organizationId=${this.orgId}&searchStr=${str}`).then((data) => {
+  querySearchList = str => axios.get(`${this.apiGateway}/page/full_text_search?organizationId=${this.orgId}&searchStr=${str}&baseId=${this.baseId}`).then((data) => {
     if (data && !data.failed) {
       this.setSearchList(data);
     } else {
@@ -896,7 +1027,7 @@ class PageStore {
     return toJS(this.recentUpdate);
   }
 
-  queryRecentUpdate = () => axios.get(`${this.apiGetway}/work_space/recent_update_list?organizationId=${this.orgId}`).then((data) => {
+  queryRecentUpdate = () => axios.get(`${this.apiGateway}/work_space/recent_update_list?organizationId=${this.orgId}&baseId=${this.baseId}`).then((data) => {
     if (data && !data.failed) {
       this.setRecentUpdate(data);
     } else {

@@ -1,6 +1,57 @@
 # Changelog
 All notable changes about knowledgebase-service will be documented in this file.
 
+## [0.24.0] - 2020-12-24
+
+### Changed
+
+- Do not empty the content when the article fails to save.
+
+
+
+## [0.21.0] - 2020-03-06
+
+### Added
+
+- Support to create multiple knowledge bases.
+- Public scope setting of knowledge base is supported.
+- The knowledge base supports setting up document templates.  
+- Support the creation of knowledge base or document based on template.
+- The knowledge base supports copying documents.
+- The knowledge base supports moving documents.
+- Support knowledge base recovery from recycle bin.  
+
+### Changed
+
+- Partial views style optimization. 
+- Partial report optimization.
+
+### Fixed
+
+- Fix the problem with the knowledge base full screen menu bar.
+- Fix the problem of abnormal operation history and version comparison caused by wiki migration to knowledge base.
+
+
+## [0.20.0] - 2019-12-20
+
+### Added
+
+- Support to view recent knowledge activities.
+- Support recycle bin function.  
+
+### Changed
+
+- Subtask support association knowledge.
+- Remove text at top of sidebar.
+- Unified field explanation icon and description style.
+- Uniform font color and size.
+
+### Fixed
+
+- Fix knowledge link jump problem in issue detail.
+- Fix the white pages in the knowledge base.
+
+
 ## [0.19.0] - 2019-10-18
 
 ### Added

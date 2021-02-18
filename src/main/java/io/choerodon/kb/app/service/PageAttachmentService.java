@@ -14,7 +14,7 @@ public interface PageAttachmentService {
     List<PageAttachmentVO> create(Long organizationId, Long projectId, Long pageId,
                                   List<MultipartFile> files);
 
-    List<String> uploadForAddress(List<MultipartFile> files);
+    List<String> uploadForAddress(Long organizationId, List<MultipartFile> files);
 
     List<PageAttachmentVO> queryByList(Long organizationId, Long projectId, Long pageId);
 
@@ -24,9 +24,13 @@ public interface PageAttachmentService {
 
     void delete(Long organizationId, Long projectId, Long id);
 
-    void deleteFile(String url);
+    void deleteFile(Long organizationId, String url);
 
     PageAttachmentVO queryByFileName(Long organizationId, Long projectId, String fileName);
 
     void batchDelete(Long organizationId, Long projectId, List<Long> ids);
+
+    List<PageAttachmentDTO> batchInsert(List<PageAttachmentDTO> list);
+
+    List<PageAttachmentVO> copyAttach(Long pageId, List<PageAttachmentDTO> pageAttachmentDTOS);
 }

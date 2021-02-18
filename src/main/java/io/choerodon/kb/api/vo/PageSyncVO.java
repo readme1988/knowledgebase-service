@@ -1,6 +1,7 @@
 package io.choerodon.kb.api.vo;
 
 import io.swagger.annotations.ApiModelProperty;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 
 /**
  * @author shinan.chen
@@ -8,6 +9,7 @@ import io.swagger.annotations.ApiModelProperty;
  */
 public class PageSyncVO {
     @ApiModelProperty(value = "页面id")
+    @Encrypt
     private Long id;
     @ApiModelProperty(value = "标题")
     private String title;
@@ -17,6 +19,8 @@ public class PageSyncVO {
     private Long projectId;
     @ApiModelProperty(value = "组织id")
     private Long organizationId;
+    @ApiModelProperty(value = "组织id")
+    private Long baseId;
 
     public Long getId() {
         return id;
@@ -56,5 +60,13 @@ public class PageSyncVO {
 
     public void setOrganizationId(Long organizationId) {
         this.organizationId = organizationId;
+    }
+
+    public Long getBaseId() {
+        return baseId;
+    }
+
+    public void setBaseId(Long baseId) {
+        this.baseId = baseId;
     }
 }

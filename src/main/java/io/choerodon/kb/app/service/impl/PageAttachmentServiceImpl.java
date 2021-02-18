@@ -1,12 +1,13 @@
 package io.choerodon.kb.app.service.impl;
 
 import io.choerodon.core.exception.CommonException;
+import io.choerodon.core.oauth.DetailsHelper;
 import io.choerodon.kb.api.vo.PageAttachmentVO;
 import io.choerodon.kb.app.service.PageAttachmentService;
 import io.choerodon.kb.infra.common.BaseStage;
 import io.choerodon.kb.infra.dto.PageAttachmentDTO;
 import io.choerodon.kb.infra.dto.PageDTO;
-import io.choerodon.kb.infra.feign.FileFeignClient;
+import io.choerodon.kb.infra.utils.ExpandFileClient;
 import io.choerodon.kb.infra.mapper.PageAttachmentMapper;
 import io.choerodon.kb.infra.repository.PageAttachmentRepository;
 import io.choerodon.kb.infra.repository.PageRepository;
@@ -15,16 +16,17 @@ import org.modelmapper.TypeToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -39,18 +41,18 @@ public class PageAttachmentServiceImpl implements PageAttachmentService {
     @Value("${services.attachment.url}")
     private String attachmentUrl;
 
-    private FileFeignClient fileFeignClient;
     private PageRepository pageRepository;
     private PageAttachmentRepository pageAttachmentRepository;
     private ModelMapper modelMapper;
     private PageAttachmentMapper pageAttachmentMapper;
+    private ExpandFileClient expandFileClient;
 
-    public PageAttachmentServiceImpl(FileFeignClient fileFeignClient,
+    public PageAttachmentServiceImpl(ExpandFileClient expandFileClient,
                                      PageRepository pageRepository,
                                      PageAttachmentRepository pageAttachmentRepository,
                                      ModelMapper modelMapper,
                                      PageAttachmentMapper pageAttachmentMapper) {
-        this.fileFeignClient = fileFeignClient;
+        this.expandFileClient = expandFileClient;
         this.pageRepository = pageRepository;
         this.pageAttachmentRepository = pageAttachmentRepository;
         this.modelMapper = modelMapper;
@@ -68,15 +70,12 @@ public class PageAttachmentServiceImpl implements PageAttachmentService {
         }
         for (MultipartFile multipartFile : files) {
             String fileName = multipartFile.getOriginalFilename();
-            ResponseEntity<String> response = fileFeignClient.uploadFile(BaseStage.BACKETNAME, fileName, multipartFile);
-            if (response == null || response.getStatusCode() != HttpStatus.OK) {
-                throw new CommonException("error.attachment.upload");
-            }
-            ids.add(this.insertPageAttachment(organizationId, projectId, fileName, pageDTO.getId(), multipartFile.getSize(), dealUrl(response.getBody())).getId());
+            String url = expandFileClient.uploadFile(organizationId, BaseStage.BACKETNAME, null, fileName, multipartFile);
+            ids.add(this.insertPageAttachment(organizationId, projectId, fileName, pageDTO.getId(), multipartFile.getSize(), dealUrl(url)).getId());
         }
         if (!ids.isEmpty()) {
             String urlSlash = attachmentUrl.endsWith("/") ? "" : "/";
-            list = modelMapper.map(pageAttachmentMapper.selectByIds(ids), new TypeToken<List<PageAttachmentVO>>() {
+            list = modelMapper.map(pageAttachmentMapper.selectIn(ids), new TypeToken<List<PageAttachmentVO>>() {
             }.getType());
             list.stream().forEach(p -> p.setUrl(attachmentUrl + urlSlash + p.getUrl()));
         }
@@ -85,7 +84,7 @@ public class PageAttachmentServiceImpl implements PageAttachmentService {
     }
 
     @Override
-    public List<String> uploadForAddress(List<MultipartFile> files) {
+    public List<String> uploadForAddress(Long organizationId, List<MultipartFile> files) {
         if (!(files != null && !files.isEmpty())) {
             throw new CommonException("error.attachment.exits");
         }
@@ -93,11 +92,8 @@ public class PageAttachmentServiceImpl implements PageAttachmentService {
         String urlSlash = attachmentUrl.endsWith("/") ? "" : "/";
         for (MultipartFile multipartFile : files) {
             String fileName = multipartFile.getOriginalFilename();
-            ResponseEntity<String> response = fileFeignClient.uploadFile(BaseStage.BACKETNAME, fileName, multipartFile);
-            if (response == null || response.getStatusCode() != HttpStatus.OK) {
-                throw new CommonException("error.attachment.upload");
-            }
-            result.add(attachmentUrl + urlSlash + dealUrl(response.getBody()));
+            String url = expandFileClient.uploadFile(organizationId, BaseStage.BACKETNAME, null, fileName, multipartFile);
+            result.add(attachmentUrl + urlSlash + dealUrl(url));
         }
         return result;
     }
@@ -118,13 +114,25 @@ public class PageAttachmentServiceImpl implements PageAttachmentService {
     public void delete(Long organizationId, Long projectId, Long id) {
         PageAttachmentDTO pageAttachmentDTO = pageAttachmentRepository.baseQueryById(id);
         pageRepository.checkById(organizationId, projectId, pageAttachmentDTO.getPageId());
-        String urlSlash = attachmentUrl.endsWith("/") ? "" : "/";
-        pageAttachmentRepository.baseDelete(id);
-        try {
-            fileFeignClient.deleteFile(BaseStage.BACKETNAME, attachmentUrl + urlSlash + URLDecoder.decode(pageAttachmentDTO.getUrl(), "UTF-8"));
-        } catch (Exception e) {
-            LOGGER.error("error.attachment.delete", e);
+        // 查询是否有引用，没有就删除文件服务器上面的文件，有就不删除
+        PageAttachmentDTO pageAttachment = new PageAttachmentDTO();
+        pageAttachment.setUrl(pageAttachmentDTO.getUrl());
+        pageAttachment.setName(pageAttachmentDTO.getName());
+        List<PageAttachmentDTO> attachmentDTOS = pageAttachmentMapper.select(pageAttachment);
+        if (!CollectionUtils.isEmpty(attachmentDTOS) && attachmentDTOS.size() > 1) {
+            pageAttachmentRepository.baseDelete(id);
+            return;
         }
+        pageAttachmentRepository.baseDelete(id);
+        // 彻底删除文件服务器上面的文件
+        String urlSlash = attachmentUrl.endsWith("/") ? "" : "/";
+        String url = null;
+        try {
+            url = attachmentUrl + urlSlash + URLDecoder.decode(pageAttachmentDTO.getUrl(), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new CommonException("error.url.decode", e);
+        }
+        expandFileClient.deleteFileByUrlWithDbOptional(organizationId, BaseStage.BACKETNAME, Arrays.asList(url));
     }
 
     @Override
@@ -151,13 +159,15 @@ public class PageAttachmentServiceImpl implements PageAttachmentService {
     }
 
     @Override
-    public void deleteFile(String url) {
+    public void deleteFile(Long organizationId, String url) {
+        String urlSlash = attachmentUrl.endsWith("/") ? "" : "/";
+        String fileUrl = null;
         try {
-            String urlSlash = attachmentUrl.endsWith("/") ? "" : "/";
-            fileFeignClient.deleteFile(BaseStage.BACKETNAME, attachmentUrl + urlSlash + URLDecoder.decode(url, "UTF-8"));
-        } catch (Exception e) {
-            LOGGER.error("error.attachment.delete", e);
+            fileUrl = attachmentUrl + urlSlash + URLDecoder.decode(url, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new CommonException("error.url.decode", e);
         }
+        expandFileClient.deleteFileByUrlWithDbOptional(organizationId, BaseStage.BACKETNAME, Arrays.asList(fileUrl));
     }
 
     @Override
@@ -174,5 +184,31 @@ public class PageAttachmentServiceImpl implements PageAttachmentService {
         for (Long id : ids) {
             this.delete(organizationId, projectId, id);
         }
+    }
+
+    @Override
+    public List<PageAttachmentDTO> batchInsert(List<PageAttachmentDTO> list) {
+        if (CollectionUtils.isEmpty(list)) {
+            throw new CommonException("error.batch.insert.attach.is.empty");
+        }
+        pageAttachmentMapper.batchInsert(list);
+        return list;
+    }
+
+    @Override
+    public List<PageAttachmentVO> copyAttach(Long pageId, List<PageAttachmentDTO> pageAttachmentDTOS) {
+        if (!CollectionUtils.isEmpty(pageAttachmentDTOS)) {
+            Long userId = DetailsHelper.getUserDetails().getUserId();
+            pageAttachmentDTOS.forEach(attach -> {
+                attach.setId(null);
+                attach.setPageId(pageId);
+                attach.setCreatedBy(userId);
+                attach.setLastUpdatedBy(userId);
+            });
+            List<PageAttachmentDTO> attachmentDTOS = batchInsert(pageAttachmentDTOS);
+            return modelMapper.map(attachmentDTOS, new TypeToken<List<PageAttachmentVO>>() {
+            }.getType());
+        }
+        return new ArrayList<>();
     }
 }

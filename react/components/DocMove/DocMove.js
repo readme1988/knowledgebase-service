@@ -1,9 +1,10 @@
 import React, { Component } from 'react';
+import { toJS } from 'mobx';
 import { observer } from 'mobx-react';
 import { withRouter } from 'react-router-dom';
 import { injectIntl } from 'react-intl';
 import { Modal, Table } from 'choerodon-ui';
-import './DocMove.scss';
+import './DocMove.less';
 
 @observer
 class DocMove extends Component {
@@ -12,7 +13,7 @@ class DocMove extends Component {
     this.state = {
       loading: true,
       confirmLoading: false,
-      selectedRowKeys: [0],
+      selectedRowKeys: [],
     };
   }
 
@@ -23,8 +24,10 @@ class DocMove extends Component {
   initData = () => {
     const { store } = this.props;
     store.queryMoveTree().then(() => {
+      const { moveTree } = store;
       this.setState({
         loading: false,
+        selectedRowKeys: [moveTree[0] && moveTree[0].id],
       });
     });
   };
@@ -75,7 +78,8 @@ class DocMove extends Component {
     const { loading, selectedRowKeys, confirmLoading } = this.state;
     const { moveVisible, store, closeDocMove } = this.props;
     const data = store.getMoveTree;
-
+    const workSpace = store.getWorkSpace;
+    const spaceData = workSpace[store.spaceCode].data;
     const rowSelection = {
       selectedRowKeys,
       onChange: this.onSelectChange,
@@ -104,7 +108,7 @@ class DocMove extends Component {
           pagination={false}
           loading={loading}
           filterBar={false}
-          defaultExpandedRowKeys={[0]}
+          defaultExpandedRowKeys={[spaceData.rootId]}
           scroll={{ y: 400 }}
         />
       </Modal>

@@ -2,6 +2,7 @@ package io.choerodon.kb.api.vo;
 
 import io.choerodon.kb.infra.feign.vo.UserDO;
 import io.swagger.annotations.ApiModelProperty;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 
 import java.util.Date;
 import java.util.List;
@@ -12,7 +13,10 @@ import java.util.List;
  */
 public class WorkSpaceInfoVO {
     @ApiModelProperty(value = "空间id")
+    @Encrypt
     private Long id;
+    @ApiModelProperty(value = "描述")
+    private String description;
     @ApiModelProperty(value = "工作空间路径")
     private String route;
     @ApiModelProperty(value = "引用类型")
@@ -20,12 +24,14 @@ public class WorkSpaceInfoVO {
     @ApiModelProperty(value = "乐观锁版本号")
     private Long objectVersionNumber;
     @ApiModelProperty(value = "空间创建人id")
+    @Encrypt
     private Long createdBy;
     @ApiModelProperty(value = "空间创建用户对象")
     private UserDO createUser;
     @ApiModelProperty(value = "空间创建日期")
     private Date creationDate;
     @ApiModelProperty(value = "空间最后修改人id")
+    @Encrypt
     private Long lastUpdatedBy;
     @ApiModelProperty(value = "空间最后修改用户对象")
     private UserDO lastUpdatedUser;
@@ -47,6 +53,16 @@ public class WorkSpaceInfoVO {
     private List<PageAttachmentVO> pageAttachments;
     @ApiModelProperty(value = "评论列表")
     private List<PageCommentVO> pageComments;
+    @ApiModelProperty(value = "是否已经被删除")
+    private Boolean delete;
+
+    public Boolean getDelete() {
+        return delete;
+    }
+
+    public void setDelete(Boolean delete) {
+        this.delete = delete;
+    }
 
     public List<PageCommentVO> getPageComments() {
         return pageComments;
@@ -198,5 +214,13 @@ public class WorkSpaceInfoVO {
 
     public void setUserSettingVO(UserSettingVO userSettingVO) {
         this.userSettingVO = userSettingVO;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

@@ -8,15 +8,14 @@ import {
   BackTop, Input, Icon, Button, Tooltip,
 } from 'choerodon-ui';
 import 'codemirror/lib/codemirror.css';
-import 'tui-editor/dist/tui-editor.min.css';
-import 'tui-editor/dist/tui-editor-contents.min.css';
-import '../Extensions/table/table';
+import '@toast-ui/editor/dist/toastui-editor.css';
+import table from '@toast-ui/editor-plugin-table-merged-cell';
 import { Viewer } from '@toast-ui/react-editor';
 import Lightbox from 'react-image-lightbox';
 import DocHeader from '../DocHeader';
 import DocAttachment from '../doc-attachment';
 import DocComment from '../doc-comment';
-import './DocViewer.scss';
+import './DocViewer.less';
 
 @observer
 class DocViewer extends Component {
@@ -59,6 +58,8 @@ class DocViewer extends Component {
   };
 
   handleClickTitle = () => {
+    const { editTitleBefore } = this.props;
+    editTitleBefore();
     this.setState({
       editTitle: true,
     });
@@ -175,10 +176,7 @@ class DocViewer extends Component {
             <Viewer
               initialValue={searchVisible ? data.pageInfo.highlightContent : data.pageInfo.content}
               usageStatistics={false}
-              exts={[
-                'table',
-                'attachment',
-              ]}
+              plugins={[table]}
             />
           </div>
           <div className="c7n-docViewer-footer">
@@ -186,8 +184,8 @@ class DocViewer extends Component {
               <span className="c7n-docViewer-mRight">创建者</span>
               {data.createUser
                 ? (
-                  <Tooltip placement="top" title={data.createUser.ldap ? `${data.createUser.realName}（${data.createUser.loginName}）` : `${data.createUser.realName}（${data.createUser.email}）`}>
-                    <span className="c7n-docViewer-mRight">{data.createUser.realName || data.createUser.loginName}</span>
+                  <Tooltip placement="top" title={data.pageInfo.createUser.ldap ? `${data.pageInfo.createUser.realName}（${data.pageInfo.createUser.loginName}）` : `${data.pageInfo.createUser.realName}（${data.pageInfo.createUser.email}）`}>
+                    <span className="c7n-docViewer-mRight">{data.pageInfo.createUser.realName || data.pageInfo.createUser.loginName}</span>
                   </Tooltip>
                 ) : '无'}
               {'（'}
@@ -197,14 +195,14 @@ class DocViewer extends Component {
                   locale={Choerodon.getMessage('zh_CN', 'en')}
                 />
               </Tooltip>
-              {'）'}
+              ）
             </div>
             <div>
               <span className="c7n-docViewer-mRight">最近编辑</span>
               {data.lastUpdatedUser
                 ? (
-                  <Tooltip placement="top" title={data.lastUpdatedUser.ldap ? `${data.lastUpdatedUser.realName}（${data.lastUpdatedUser.loginName}）` : `${data.lastUpdatedUser.realName}（${data.lastUpdatedUser.email}）`}>
-                    <span className="c7n-docViewer-mRight">{data.lastUpdatedUser.realName || data.lastUpdatedUser.loginName}</span>
+                  <Tooltip placement="top" title={data.pageInfo.lastUpdatedUser.ldap ? `${data.pageInfo.lastUpdatedUser.realName}（${data.pageInfo.lastUpdatedUser.loginName}）` : `${data.pageInfo.lastUpdatedUser.realName}（${data.pageInfo.lastUpdatedUser.email}）`}>
+                    <span className="c7n-docViewer-mRight">{data.pageInfo.lastUpdatedUser.realName || data.pageInfo.lastUpdatedUser.loginName}</span>
                   </Tooltip>
                 ) : '无'}
               {'（'}
@@ -214,7 +212,7 @@ class DocViewer extends Component {
                   locale={Choerodon.getMessage('zh_CN', 'en')}
                 />
               </Tooltip>
-              {'）'}
+              ）
             </div>
           </div>
           {!readOnly

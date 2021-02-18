@@ -1,14 +1,14 @@
 package io.choerodon.kb.api.controller.v1;
 
-import io.choerodon.base.annotation.Permission;
-import io.choerodon.base.enums.ResourceType;
-import io.choerodon.core.iam.InitRoleCode;
+import io.choerodon.swagger.annotation.Permission;
+import io.choerodon.core.iam.ResourceLevel;
 import io.choerodon.kb.api.vo.PageCommentVO;
 import io.choerodon.kb.api.vo.PageCreateCommentVO;
 import io.choerodon.kb.api.vo.PageUpdateCommentVO;
 import io.choerodon.kb.app.service.PageCommentService;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.hzero.starter.keyencrypt.core.Encrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,7 +34,7 @@ public class PageCommentProjectController {
      * @param pageCreateCommentVO 评论信息
      * @return List<PageCommentVO>
      */
-    @Permission(type = ResourceType.PROJECT, roles = {InitRoleCode.PROJECT_MEMBER, InitRoleCode.PROJECT_OWNER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("创建page评论")
     @PostMapping
     public ResponseEntity<PageCommentVO> create(@ApiParam(value = "项目ID", required = true)
@@ -42,11 +42,11 @@ public class PageCommentProjectController {
                                                 @ApiParam(value = "组织id", required = true)
                                                 @RequestParam Long organizationId,
                                                 @ApiParam(value = "评论信息", required = true)
-                                                @RequestBody @Valid PageCreateCommentVO pageCreateCommentVO) {
+                                                @RequestBody @Valid @Encrypt PageCreateCommentVO pageCreateCommentVO) {
         return new ResponseEntity<>(pageCommentService.create(organizationId, projectId, pageCreateCommentVO), HttpStatus.CREATED);
     }
 
-    @Permission(type = ResourceType.PROJECT, roles = {InitRoleCode.PROJECT_MEMBER, InitRoleCode.PROJECT_OWNER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation(value = " 查询页面评论")
     @GetMapping(value = "/list")
     public ResponseEntity<List<PageCommentVO>> queryByPageId(
@@ -55,7 +55,7 @@ public class PageCommentProjectController {
             @ApiParam(value = "组织id", required = true)
             @RequestParam Long organizationId,
             @ApiParam(value = "页面id", required = true)
-            @RequestParam Long pageId) {
+            @RequestParam @Encrypt Long pageId) {
         return new ResponseEntity<>(pageCommentService.queryByPageId(organizationId, projectId, pageId), HttpStatus.OK);
     }
 
@@ -67,7 +67,7 @@ public class PageCommentProjectController {
      * @param pageUpdateCommentVO 评论信息
      * @return
      */
-    @Permission(type = ResourceType.PROJECT, roles = {InitRoleCode.PROJECT_MEMBER, InitRoleCode.PROJECT_OWNER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("更新page评论")
     @PutMapping(value = "/{id}")
     public ResponseEntity<PageCommentVO> update(@ApiParam(value = "项目ID", required = true)
@@ -75,9 +75,9 @@ public class PageCommentProjectController {
                                                 @ApiParam(value = "组织id", required = true)
                                                 @RequestParam Long organizationId,
                                                 @ApiParam(value = "评论id", required = true)
-                                                @PathVariable Long id,
+                                                @PathVariable @Encrypt Long id,
                                                 @ApiParam(value = "评论信息", required = true)
-                                                @RequestBody @Valid PageUpdateCommentVO pageUpdateCommentVO) {
+                                                @RequestBody @Valid @Encrypt PageUpdateCommentVO pageUpdateCommentVO) {
         return new ResponseEntity<>(pageCommentService.update(organizationId, projectId, id, pageUpdateCommentVO), HttpStatus.CREATED);
     }
 
@@ -88,7 +88,7 @@ public class PageCommentProjectController {
      * @param id        评论id
      * @return ResponseEntity
      */
-    @Permission(type = ResourceType.PROJECT, roles = {InitRoleCode.PROJECT_OWNER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("通过id删除评论（管理员权限）")
     @DeleteMapping(value = "/{id}")
     public ResponseEntity deleteComment(@ApiParam(value = "项目ID", required = true)
@@ -96,7 +96,7 @@ public class PageCommentProjectController {
                                         @ApiParam(value = "组织id", required = true)
                                         @RequestParam Long organizationId,
                                         @ApiParam(value = "评论id", required = true)
-                                        @PathVariable Long id) {
+                                        @PathVariable @Encrypt Long id) {
         pageCommentService.delete(organizationId, projectId, id, true);
         return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
@@ -108,7 +108,7 @@ public class PageCommentProjectController {
      * @param id        评论id
      * @return ResponseEntity
      */
-    @Permission(type = ResourceType.PROJECT, roles = {InitRoleCode.PROJECT_MEMBER, InitRoleCode.PROJECT_OWNER})
+    @Permission(level = ResourceLevel.ORGANIZATION)
     @ApiOperation("通过id删除评论（删除自己的评论）")
     @DeleteMapping(value = "/delete_my/{id}")
     public ResponseEntity deleteMyComment(@ApiParam(value = "项目ID", required = true)
@@ -116,8 +116,9 @@ public class PageCommentProjectController {
                                           @ApiParam(value = "组织id", required = true)
                                           @RequestParam Long organizationId,
                                           @ApiParam(value = "评论id", required = true)
-                                          @PathVariable Long id) {
+                                          @PathVariable @Encrypt Long id) {
         pageCommentService.delete(organizationId, projectId, id, false);
         return new ResponseEntity(HttpStatus.NO_CONTENT);
     }
+
 }

@@ -6,13 +6,10 @@ import { stores, Choerodon } from '@choerodon/boot';
 import { injectIntl } from 'react-intl';
 import TimeAgo from 'timeago-react';
 import Lightbox from 'react-image-lightbox';
-import 'codemirror/lib/codemirror.css';
-import 'tui-editor/dist/tui-editor.min.css';
-import 'tui-editor/dist/tui-editor-contents.min.css';
 import { Viewer } from '@toast-ui/react-editor';
 import { escape } from '../../utils';
 import UserHead from '../UserHead';
-import './DocVersion.scss';
+import './DocVersion.less';
 
 const { confirm } = Modal;
 const { AppState } = stores;
@@ -183,7 +180,7 @@ const { AppState } = stores;
     const urlParams = AppState.currentMenuType;
     const { store, history } = this.props;
     const { getDoc: { workSpace: { id: workSpaceId } } } = store;
-    history.push(`/knowledge/${urlParams.type}?type=${urlParams.type}&id=${urlParams.id}&name=${encodeURIComponent(urlParams.name)}&organizationId=${urlParams.organizationId}&orgId=${urlParams.organizationId}&spaceId=${workSpaceId}`);
+    history.push(`/knowledge/${urlParams.type}/doc/${store.baseId}?type=${urlParams.type}&id=${urlParams.id}&name=${encodeURIComponent(urlParams.name)}&organizationId=${urlParams.organizationId}&orgId=${urlParams.organizationId}&spaceId=${workSpaceId}`);
   };
 
   onImageClick = (e) => {
@@ -251,6 +248,7 @@ const { AppState } = stores;
                 />
               ) : (
                 <Viewer
+                  key={doc.id}
                   initialValue={doc.content}
                 />
               )}

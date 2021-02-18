@@ -7,38 +7,81 @@ spring:
     multipart:
       max-file-size: 30MB
       max-request-size: 30MB
+hzero:
+  service:
+    platform:
+      name: choerodon-platform
+    oauth:
+      name: choerodon-oauth
+    iam:
+      name: choerodon-iam
+    file:
+      name: choerodon-file
+    message:
+      name: choerodon-message
+    admin:
+      name: choerodon-admin
+    swagger:
+      name: choerodon-swagger
+    gateway:
+      name: choerodon-gateway
+    monitor:
+      name: choerodon-monitor
 choerodon:
   saga:
+    service: choerodon-asgard
     consumer:
       thread-num: 5 # saga消息消费线程池大小
       max-poll-size: 200 # 关闭拉取消息最大数量
-      enabled: false # 启动消费端
+      enabled: true # 启动消费端
       poll-interval-ms: 1000 # 拉取间隔，默认1000毫秒
   schedule:
     consumer:
-      enabled: false # 关闭任务调度消费端
+      enabled: true # 关闭任务调度消费端
       thread-num: 1 # 任务调度消费线程数
       poll-interval-ms: 1000 # 拉取间隔，默认1000毫秒
 services:
   attachment:
     url: http://minio.example.com/knowledgebase-service/
+
 feign:
   hystrix:
-    shareSecurityContext: true
-    command:
-      default:
-        execution:
-          isolation:
-            thread:
-              timeoutInMilliseconds: 10000
+    enabled: true
+
+hystrix:
+  threadpool:
+    default:
+      # 执行命令线程池的核心线程数，也是命令执行的最大并发量
+      # 默认10
+      coreSize: 1000
+      # 最大执行线程数
+      maximumSize: 1000
+  command:
+    default:
+      execution:
+        isolation:
+          thread:
+            # HystrixCommand 执行的超时时间，超时后进入降级处理逻辑。一个接口，理论的最佳响应速度应该在200ms以内，或者慢点的接口就几百毫秒。
+            # 默认 1000 毫秒，最高设置 2000足矣。如果超时，首先看能不能优化接口相关业务、SQL查询等，不要盲目加大超时时间，否则会导致线程堆积过多，hystrix 线程池卡死，最终服务不可用。
+            timeoutInMilliseconds: ${HYSTRIX_COMMAND_TIMEOUT_IN_MILLISECONDS:40000}
+
 ribbon:
-  ConnectTimeout: 5000
-  ReadTimeout: 5000
+  # 客户端读取超时时间，超时时间要小于Hystrix的超时时间，否则重试机制就无意义了
+  ReadTimeout: ${RIBBON_READ_TIMEOUT:30000}
+  # 客户端连接超时时间
+  ConnectTimeout: ${RIBBON_CONNECT_TIMEOUT:3000}
+  # 访问实例失败(超时)，允许自动重试，设置重试次数，失败后会更换实例访问，请一定确保接口的幂等性，否则重试可能导致数据异常。
+  OkToRetryOnAllOperations: true
+  MaxAutoRetries: 1
+  MaxAutoRetriesNextServer: 1
+
 eureka:
   instance:
     preferIpAddress: true
     leaseRenewalIntervalInSeconds: 10
     leaseExpirationDurationInSeconds: 30
+    metadata-map:
+      VERSION: 0.25.0.RELEASE
   client:
     serviceUrl:
       defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8000/eureka/}
@@ -47,6 +90,10 @@ mybatis:
   mapperLocations: classpath*:/mapper/*.xml
   configuration: # 数据库下划线转驼峰配置
     mapUnderscoreToCamelCase: true
+    key-generator: snowflake
+    snowflake:
+      meta-provider-redis-db: ${SPRING_REDIS_DATABASE:1}
+
 elasticsearch:
   ip: 127.0.0.1:9200
 logging:

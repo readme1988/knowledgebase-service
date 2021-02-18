@@ -1,21 +1,17 @@
-import React, { Component, useImperativeHandle } from 'react';
+import React, { Component } from 'react';
 import { withRouter, Prompt } from 'react-router-dom';
 import { Choerodon } from '@choerodon/boot';
-import {
-  Button, Modal,
-} from 'choerodon-ui';
+import { Modal } from 'choerodon-ui';
 import 'codemirror/lib/codemirror.css';
-import 'tui-editor/dist/tui-editor.min.css';
-import 'tui-editor/dist/tui-editor-contents.min.css';
-import 'tui-color-picker/dist/tui-color-picker.min.css';
-
-import 'tui-editor/dist/tui-editor-extScrollSync';
-import 'tui-editor/dist/tui-editor-extColorSyntax';
-import 'tui-editor/dist/tui-editor-extTable';
+import '@toast-ui/editor/dist/toastui-editor.css';
+import '@toast-ui/editor/dist/i18n/zh-cn';
+import 'tui-color-picker/dist/tui-color-picker.css';
+import colorSyntax from '@toast-ui/editor-plugin-color-syntax';
+import table from '@toast-ui/editor-plugin-table-merged-cell';
 import { Editor as ToastEditor } from '@toast-ui/react-editor';
 import uploadImage, { convertBase64UrlToBlob } from '../../utils';
 import DocImageEditor from '../DocImageEditor';
-import './Editor.scss';
+import './Editor.less';
 
 const REFRESH_INTERVAL = 60 * 1000;
 
@@ -61,8 +57,8 @@ class Editor extends Component {
     const { changeCount } = this.state;
     if (changeCount === 1) {
       e.preventDefault();
-      e.returnValue = '你这在编辑的内容尚未保存，确定离开吗？';
-      return '你这在编辑的内容尚未保存，确定离开吗？';
+      e.returnValue = '你正在编辑的内容尚未保存，确定离开吗？';
+      return '你正在编辑的内容尚未保存，确定离开吗？';
     }
   };
 
@@ -175,14 +171,9 @@ class Editor extends Component {
           height={height}
           initialEditType={initialEditType}
           useCommandShortcut={false}
-          language="zh_CN"
+          language="zh-CN"
           ref={this.editorRef}
-          exts={[
-            'scrollSync',
-            'colorSyntax',
-            'table',
-            'attachment',
-          ]}
+          plugins={[colorSyntax, table]}
           hooks={
             {
               // 图片上传的 hook

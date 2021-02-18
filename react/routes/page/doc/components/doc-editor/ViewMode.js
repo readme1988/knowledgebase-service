@@ -1,6 +1,5 @@
 import React, { useContext } from 'react';
 import { observer } from 'mobx-react-lite';
-import { withRouter } from 'react-router-dom';
 import { stores } from '@choerodon/boot';
 import PageStore from '../../../stores';
 import DocViewer from '../../../../../components/DocViewer';
@@ -8,7 +7,7 @@ import DocViewer from '../../../../../components/DocViewer';
 const { AppState } = stores;
 
 function ViewMode(props) {
-  const { readOnly, loadWorkSpace, fullScreen, exitFullScreen, editDoc, searchText } = props;
+  const { readOnly, loadWorkSpace, fullScreen, exitFullScreen, editDoc, searchText, editTitleBefore } = props;
   const { pageStore } = useContext(PageStore);
   const { getWorkSpace: workSpace, getSpaceCode: spaceCode } = pageStore;
   const { getMode: mode, getDoc: data } = pageStore;
@@ -16,6 +15,7 @@ function ViewMode(props) {
   return (
     <span>
       <DocViewer
+        key={data.id}
         readOnly={readOnly}
         fullScreen={fullScreen}
         spaceData={workSpace[spaceCode].data}
@@ -26,6 +26,7 @@ function ViewMode(props) {
         exitFullScreen={exitFullScreen}
         editDoc={editDoc}
         searchText={searchText}
+        editTitleBefore={editTitleBefore}
       />
     </span>
   );
